@@ -7,6 +7,61 @@ import pandas as pd
 import numpy as np
 import plotly.express as px
 
+# ===========================================================
+# FORMATAÇÃO GLOBAL – padrão corporativo para o dashboard inteiro
+# ===========================================================
+
+def fmt_money(v):
+    try:
+        if pd.isna(v): return "-"
+        return "R$ {:,.2f}".format(float(v)).replace(",", "X").replace(".", ",").replace("X", ".")
+    except:
+        return "-"
+
+def fmt_pct(v, decimals=1):
+    try:
+        if pd.isna(v): return "-"
+        return f"{float(v):.{decimals}f}%".replace(".", ",")
+    except:
+        return "-"
+
+def fmt_int(v):
+    try:
+        if pd.isna(v): return "-"
+        return "{:,.0f}".format(float(v)).replace(",", ".")
+    except:
+        return "-"
+
+def apply_global_formatting(df):
+    """
+    Varre a tabela automaticamente e formata colunas com base no nome:
+    - Colunas com 'fat', 'valor', 'preço', 'total', 'custo' => R$
+    - Colunas com 'marg', 'perc', '%' => %
+    - Colunas com 'qtd', 'quant', 'pedidos', 'itens' => inteiros
+    - Todo resto permanece como está
+    """
+
+    df2 = df.copy()
+
+    money_keywords = ["valor", "fat", "preço", "custo", "imposto", "receita", "total", "ticket"]
+    pct_keywords = ["marg", "%", "perc"]
+    int_keywords = ["qtd", "quant", "pedido", "itens", "freq", "clientesativos"]
+
+    for col in df2.columns:
+        col_lower = col.lower()
+
+        if any(k in col_lower for k in money_keywords):
+            df2[col] = df2[col].apply(fmt_money)
+
+        elif any(k in col_lower for k in pct_keywords):
+            df2[col] = df2[col].apply(fmt_pct)
+
+        elif any(k in col_lower for k in int_keywords):
+            df2[col] = df2[col].apply(fmt_int)
+
+    return df2
+
+
 # ============================
 # FORMATAÇÃO CORPORATIVA
 # ============================
