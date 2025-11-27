@@ -267,14 +267,44 @@ with aba1:
     st.dataframe(cli.sort_values("FatLiq", ascending=False))
 
 with aba2:
-    st.subheader("Performance por Representante")
+    st.subheader("📌 Performance Geral por Representante")
+
     rep = df_f.groupby("Representante", as_index=False).agg(
-        FatLiq=("Faturamento Líquido","sum"),
-        FatBruto=("Valor Pedido R$","sum"),
-        Impostos=("Imposto Total","sum"),
-        Lucro=("Lucro Bruto","sum")
+        FatLiq=("Faturamento Líquido", "sum"),
+        FatBruto=("Valor Pedido R$", "sum"),
+        Impostos=("Imposto Total", "sum"),
+        CustoTotal=("Custo Total", "sum"),
+        Pedidos=("Pedido", "nunique"),
+        ClientesAtivos=("Nome Cliente", "nunique"),
+        QtdItens=("Quant. Pedidos", "sum")
     )
-    st.dataframe(rep.sort_values("FatLiq", ascending=False))
+
+    rep["Ticket Médio"] = rep["FatLiq"] / rep["Pedidos"]
+    rep["Margem Bruta (%)"] = np.where(
+        rep["FatBruto"] > 0, 
+        100 * (rep["FatBruto"] - rep["CustoTotal"]) / rep["FatBruto"], 
+        np.nan
+    )
+    rep["Margem Líquida (%)"] = np.where(
+        rep["FatLiq"] > 0,
+        100 * (rep["FatLiq"] - rep["CustoTotal"]) / rep["FatLiq"],
+        np.nan
+    )
+    rep["% Impostos"] = rep["Impostos"] / rep["FatBruto"] * 100
+
+     rep_fmt = format_dataframe(
+        rep.sort_values("FatLiq", ascending=False),
+        money_cols=["FatLiq", "FatBruto", "Impostos", "CustoTotal", "Ticket Médio"],
+        pct_cols=["Margem Bruta (%)", "Margem Líquida (%)", "% Impostos"],
+        int_cols=["Pedidos", "ClientesAtivos", "QtdItens"]
+    )
+
+    st.dataframe(
+        rep_fmt,
+        use_container_width=True
+    )
+
+
 
 with aba3:
     st.subheader("Faturamento por UF")
