@@ -7,6 +7,41 @@ import pandas as pd
 import numpy as np
 import plotly.express as px
 
+# ============================
+# FORMATAÇÃO CORPORATIVA
+# ============================
+def fmt_money(v):
+    if pd.isna(v):
+        return "-"
+    return "R$ {:,.2f}".format(v).replace(",", "X").replace(".", ",").replace("X", ".")
+
+def fmt_int(v):
+    if pd.isna(v):
+        return "-"
+    return "{:,.0f}".format(v).replace(",", ".")
+
+def fmt_pct(v):
+    if pd.isna(v):
+        return "-"
+    return "{:.1f}%".format(v).replace(".", ",")
+
+def format_dataframe(df, money_cols=None, pct_cols=None, int_cols=None):
+    df2 = df.copy()
+    money_cols = money_cols or []
+    pct_cols = pct_cols or []
+    int_cols = int_cols or []
+
+    for col in df2.columns:
+        if col in money_cols:
+            df2[col] = df2[col].apply(fmt_money)
+        elif col in pct_cols:
+            df2[col] = df2[col].apply(fmt_pct)
+        elif col in int_cols:
+            df2[col] = df2[col].apply(fmt_int)
+
+    return df2
+
+
 from inteligencia_comercial import (
     clientes_em_crescimento,
     clientes_em_queda,
