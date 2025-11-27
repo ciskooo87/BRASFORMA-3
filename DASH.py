@@ -302,11 +302,14 @@ if clientes:
 
 
 # ============================================================
-# VISÃO EXECUTIVA – REFINADA
+# VISÃO EXECUTIVA – COMPLETA, COM RESUMO E IA
 # ============================================================
 
 st.markdown("## 📊 Visão Executiva – Panorama Geral")
 
+# --------------------------
+# KPIs
+# --------------------------
 fat_liq = df_f["Faturamento Líquido"].sum()
 fat_bruto = df_f["Valor Pedido R$"].sum()
 impostos = df_f["Imposto Total"].sum()
@@ -318,81 +321,102 @@ margem_bruta = ((fat_bruto - custo_total) / fat_bruto * 100) if fat_bruto > 0 el
 ticket_medio = fat_liq / pedidos if pedidos > 0 else 0
 
 col1, col2, col3, col4 = st.columns(4)
-
-with col1:
-    st.markdown(f"""
-    <div class='metric-card'>
-        <div class='metric-label'>Faturamento Líquido</div>
-        <div class='metric-value'>{fmt_money(fat_liq)}</div>
-    </div>
-    """, unsafe_allow_html=True)
-
-with col2:
-    st.markdown(f"""
-    <div class='metric-card'>
-        <div class='metric-label'>Faturamento Bruto</div>
-        <div class='metric-value'>{fmt_money(fat_bruto)}</div>
-    </div>
-    """, unsafe_allow_html=True)
-
-with col3:
-    st.markdown(f"""
-    <div class='metric-card'>
-        <div class='metric-label'>Impostos Totais</div>
-        <div class='metric-value'>{fmt_money(impostos)}</div>
-    </div>
-    """, unsafe_allow_html=True)
-
-with col4:
-    st.markdown(f"""
-    <div class='metric-card'>
-        <div class='metric-label'>Pedidos</div>
-        <div class='metric-value'>{fmt_int(pedidos)}</div>
-    </div>
-    """, unsafe_allow_html=True)
-
-
-# ---- Segunda linha de KPIs ----
 col5, col6, col7, col8 = st.columns(4)
 
+with col1:
+    st.markdown(f"<div class='metric-card'><div class='metric-label'>Faturamento Líquido</div><div class='metric-value'>{fmt_money(fat_liq)}</div></div>", unsafe_allow_html=True)
+with col2:
+    st.markdown(f"<div class='metric-card'><div class='metric-label'>Faturamento Bruto</div><div class='metric-value'>{fmt_money(fat_bruto)}</div></div>", unsafe_allow_html=True)
+with col3:
+    st.markdown(f"<div class='metric-card'><div class='metric-label'>Impostos</div><div class='metric-value'>{fmt_money(impostos)}</div></div>", unsafe_allow_html=True)
+with col4:
+    st.markdown(f"<div class='metric-card'><div class='metric-label'>Pedidos</div><div class='metric-value'>{fmt_int(pedidos)}</div></div>", unsafe_allow_html=True)
+
 with col5:
-    st.markdown(f"""
-    <div class='metric-card'>
-        <div class='metric-label'>Clientes Atendidos</div>
-        <div class='metric-value'>{fmt_int(clientes)}</div>
-    </div>
-    """, unsafe_allow_html=True)
-
+    st.markdown(f"<div class='metric-card'><div class='metric-label'>Clientes Atendidos</div><div class='metric-value'>{fmt_int(clientes)}</div></div>", unsafe_allow_html=True)
 with col6:
-    st.markdown(f"""
-    <div class='metric-card'>
-        <div class='metric-label'>Custo Total</div>
-        <div class='metric-value'>{fmt_money(custo_total)}</div>
-    </div>
-    """, unsafe_allow_html=True)
-
+    st.markdown(f"<div class='metric-card'><div class='metric-label'>Custo Total</div><div class='metric-value'>{fmt_money(custo_total)}</div></div>", unsafe_allow_html=True)
 with col7:
-    st.markdown(f"""
-    <div class='metric-card'>
-        <div class='metric-label'>Margem Bruta (%)</div>
-        <div class='metric-value'>{fmt_pct(margem_bruta)}</div>
-    </div>
-    """, unsafe_allow_html=True)
-
+    st.markdown(f"<div class='metric-card'><div class='metric-label'>Margem Bruta (%)</div><div class='metric-value'>{fmt_pct(margem_bruta)}</div></div>", unsafe_allow_html=True)
 with col8:
-    st.markdown(f"""
-    <div class='metric-card'>
-        <div class='metric-label'>Ticket Médio</div>
-        <div class='metric-value'>{fmt_money(ticket_medio)}</div>
-    </div>
-    """, unsafe_allow_html=True)
+    st.markdown(f"<div class='metric-card'><div class='metric-label'>Ticket Médio</div><div class='metric-value'>{fmt_money(ticket_medio)}</div></div>", unsafe_allow_html=True)
 
 st.markdown("---")
 
+# ============================================================
+# RESUMO EXECUTIVO
+# ============================================================
+
+st.markdown("### 📰 Resumo Executivo do Período")
+
+fat_liq_prev = df[df["Data / Mês"] < df_f["Data / Mês"].min()]["Faturamento Líquido"].sum()
+pedidos_prev = df[df["Data / Mês"] < df_f["Data / Mês"].min()]["Pedido"].nunique()
+clientes_prev = df[df["Data / Mês"] < df_f["Data / Mês"].min()]["Nome Cliente"].nunique()
+
+var_fat = ((fat_liq - fat_liq_prev) / fat_liq_prev * 100) if fat_liq_prev > 0 else 0
+var_ped = ((pedidos - pedidos_prev) / pedidos_prev * 100) if pedidos_prev > 0 else 0
+var_cli = ((clientes - clientes_prev) / clientes_prev * 100) if clientes_prev > 0 else 0
+
+resumo = f"""
+No período analisado, o faturamento líquido foi de **{fmt_money(fat_liq)}**, 
+uma variação de **{fmt_pct(var_fat)}** frente ao período anterior.
+
+Foram registrados **{fmt_int(pedidos)} pedidos**, com variação de **{fmt_pct(var_ped)}**, 
+e **{fmt_int(clientes)} clientes ativos**, mudança de **{fmt_pct(var_cli)}**.
+
+A margem bruta encerrou em **{fmt_pct(margem_bruta)}**, refletindo o impacto do mix, precificação e carga tributária.
+"""
+
+st.info(resumo)
 
 # ============================================================
-# GRÁFICOS TEMPORAIS – TÍTULO AJUSTADO
+# INSIGHTS DA IA
 # ============================================================
+
+st.markdown("### 🤖 Insights Automáticos da IA Comercial")
+
+insights = []
+
+# Margem
+if margem_bruta < 30:
+    insights.append(f"Margem bruta baixa ({fmt_pct(margem_bruta)}). Avaliar descontos e composição do mix.")
+elif margem_bruta > 45:
+    insights.append(f"Margem bruta elevada ({fmt_pct(margem_bruta)}). Mix e preço estão favoráveis.")
+
+# Impostos
+perc_imp = (impostos / fat_bruto * 100) if fat_bruto > 0 else 0
+if perc_imp > 22:
+    insights.append(f"Carga tributária alta ({fmt_pct(perc_imp)}). Impacto significativo no preço final.")
+else:
+    insights.append(f"Carga tributária dentro do aceitável ({fmt_pct(perc_imp)}).")
+
+# Clientes
+if var_cli < 0:
+    insights.append("Base de clientes caiu. Ações de reativação devem ser priorizadas.")
+elif var_cli > 5:
+    insights.append("Base de clientes em expansão. Oportunidade de aumentar recorrência.")
+
+# Concentração
+top5 = df_f.groupby("Nome Cliente")["Faturamento Líquido"].sum().nlargest(5)
+perc_top5 = top5.sum() / fat_liq * 100 if fat_liq > 0 else 0
+
+if perc_top5 > 45:
+    insights.append(f"Concentração elevada: top 5 clientes = {fmt_pct(perc_top5)} do faturamento.")
+else:
+    insights.append(f"Concentração saudável ({fmt_pct(perc_top5)}).")
+
+# Churn
+total_nao = rep["QtdClientesNaoAtendidos"].sum()
+if total_nao > 40:
+    insights.append(f"{fmt_int(total_nao)} clientes não atendidos. Risco de churn.")
+else:
+    insights.append("Clientes não atendidos em nível controlado.")
+
+for item in insights:
+    st.warning("• " + item)
+
+st.markdown("---")
+
 
 st.markdown("### 📈 Evolução Mensal")
 
