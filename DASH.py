@@ -8,7 +8,7 @@ import numpy as np
 import plotly.express as px
 
 # ===========================================================
-# FORMATAÇÃO GLOBAL – padrão corporativo para o dashboard inteiro
+# FORMATAÇÃO GLOBAL PADRONIZADA – válido para o dashboard inteiro
 # ===========================================================
 
 def fmt_money(v):
@@ -34,17 +34,14 @@ def fmt_int(v):
 
 def apply_global_formatting(df):
     """
-    Varre a tabela automaticamente e formata colunas com base no nome:
-    - Colunas com 'fat', 'valor', 'preço', 'total', 'custo' => R$
-    - Colunas com 'marg', 'perc', '%' => %
-    - Colunas com 'qtd', 'quant', 'pedidos', 'itens' => inteiros
-    - Todo resto permanece como está
+    Formatação automática baseada em palavras-chave do nome da coluna.
+    Funciona para 100% das abas sem manutenção manual.
     """
 
     df2 = df.copy()
 
     money_keywords = ["valor", "fat", "preço", "custo", "imposto", "receita", "total", "ticket"]
-    pct_keywords = ["marg", "%", "perc"]
+    pct_keywords = ["marg", "perc", "%"]
     int_keywords = ["qtd", "quant", "pedido", "itens", "freq", "clientesativos"]
 
     for col in df2.columns:
@@ -62,25 +59,10 @@ def apply_global_formatting(df):
     return df2
 
 
-# ============================
-# FORMATAÇÃO CORPORATIVA
-# ============================
-def fmt_money(v):
-    if pd.isna(v):
-        return "-"
-    return "R$ {:,.2f}".format(v).replace(",", "X").replace(".", ",").replace("X", ".")
-
-def fmt_int(v):
-    if pd.isna(v):
-        return "-"
-    return "{:,.0f}".format(v).replace(",", ".")
-
-def fmt_pct(v):
-    if pd.isna(v):
-        return "-"
-    return "{:.1f}%".format(v).replace(".", ",")
-
 def format_dataframe(df, money_cols=None, pct_cols=None, int_cols=None):
+    """
+    Formatação manual quando você precisa “forçar” alguma coluna específica.
+    """
     df2 = df.copy()
     money_cols = money_cols or []
     pct_cols = pct_cols or []
