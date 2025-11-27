@@ -260,7 +260,7 @@ with aba2:
     st.dataframe(
         rep.sort_values("FatLiq", ascending=False),
         use_container_width=True
-    )
+   )
     st.markdown("### 👥 Análise de Clientes (Novos x Não Atendidos)")
 
 rep_select_clientes = st.selectbox(
