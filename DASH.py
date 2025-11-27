@@ -287,13 +287,15 @@ st.plotly_chart(fig2, use_container_width=True)
 
 st.header("🔍 Análises Detalhadas")
 
-aba1, aba2, aba3, aba4, aba5 = st.tabs([
+aba1, aba2, aba3, aba4, aba5, aba6 = st.tabs([
     "Clientes",
     "Representantes",
     "UF / Geografia",
     "Produtos / Rentabilidade",
-    "Atrasos e Lead Time"
+    "Atrasos e Lead Time",
+    "RFM"
 ])
+
 
 # ============================================================
 # CLIENTES
@@ -562,6 +564,71 @@ with tab4:
 with tab5:
     st.subheader("Anomalias Comerciais")
     st.dataframe(apply_global_formatting(detectar_anomalias(df_f)))
+    
+    # ============================================================
+# ABA 6 – RFM (Recência, Frequência, Monetário)
+# ============================================================
+with aba6:
+    st.subheader("📊 Análise RMF – Recência, Frequência e Monetário")
+
+    # =============================
+    # CÁLCULO DA RECÊNCIA
+    # =============================
+    max_date = df_f["Data do Pedido"].max()
+
+    rfm = df_f.groupby("Nome Cliente").agg(
+        Recencia=("Data do Pedido", lambda x: (max_date - x.max()).days),
+        Frequencia=("Pedido", "nunique"),
+        Monetario=("Faturamento Líquido", "sum")
+    ).reset_index()
+
+    # =============================
+    # SEGMENTAÇÃO RFM (Executiva)
+    # =============================
+    def classificar_rfm(row):
+        r, f, m = row["Recencia"], row["Frequencia"], row["Monetario"]
+
+        if r <= 30 and f >= 3 and m >= rfm["Monetario"].median():
+            return "🔥 VIP / Premium"
+        if r <= 45 and f >= 2:
+            return "📈 Crescentes"
+        if r > 60 and f == 1:
+            return "⚠ Clientes Oportunidade"
+        if r > 90:
+            return "❌ Inativos / Risco"
+        return "🟡 Regulares"
+
+    rfm["Segmento"] = rfm.apply(classificar_rfm, axis=1)
+
+    # =============================
+    # FORMATAÇÃO CORPORATIVA
+    # =============================
+    rfm_fmt = format_dataframe(
+        rfm.sort_values("Monetario", ascending=False),
+        money_cols=["Monetario"],
+        pct_cols=[],
+        int_cols=["Recencia", "Frequencia"]
+    )
+
+    st.dataframe(rfm_fmt, use_container_width=True)
+
+    # =============================
+    # GRÁFICO EXECUTIVO DE SEGMENTOS
+    # =============================
+    st.subheader("Distribuição por Segmento RFM")
+
+    seg = rfm["Segmento"].value_counts().reset_index()
+    seg.columns = ["Segmento", "Clientes"]
+
+    fig_rfm = px.bar(
+        seg,
+        x="Segmento",
+        y="Clientes",
+        color="Segmento",
+        title="Segmentação RFM – Clientes por Grupo"
+    )
+    st.plotly_chart(fig_rfm, use_container_width=True)
+
 
 
 # ============================================================
