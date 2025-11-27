@@ -275,25 +275,33 @@ df_f = df_f[
 # PRÉ-CÁLCULO GLOBAL (seguro) – usado pela Visão Executiva
 # ============================================================
 
-# Construção básica: quantidade clientes do período anterior por representante
-df_historico_global = df[
-    df["Data / Mês"] < df_f["Data / Mês"].min()
-]
+# Histórico antes do período filtrado
+df_historico_global = df[df["Data / Mês"] < df_f["Data / Mês"].min()]
 
+# Clientes históricos por representante
 hist_global = (
     df_historico_global.groupby("Representante")["Nome Cliente"]
     .nunique()
     .rename("ClientesHistoricos")
 )
 
+# Clientes atendidos no período atual
 periodo_global = (
     df_f.groupby("Representante")["Nome Cliente"]
     .nunique()
     .rename("ClientesAtuais")
 )
 
-rep_global = pd.concat([hist_global, periodo_global], axis=1).fillna(0)
+# Junta tudo corretamente, alinhando índices
+rep_global = pd.concat([hist_global, periodo_global], axis=1)
 
+# Preenche faltas com zero
+rep_global = rep_global.fillna(0)
+
+# Converte tudo para inteiro
+rep_global = rep_global.astype(int)
+
+# Calcula novos e não atendidos
 rep_global["QtdClientesNovos"] = (
     rep_global["ClientesAtuais"] - rep_global["ClientesHistoricos"]
 ).clip(lower=0)
