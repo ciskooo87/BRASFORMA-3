@@ -565,7 +565,7 @@ with tab5:
     st.subheader("Anomalias Comerciais")
     st.dataframe(apply_global_formatting(detectar_anomalias(df_f)))
     
-    # ============================================================
+   # ============================================================
 # ABA 6 – RFM (Recência, Frequência, Monetário)
 # ============================================================
 with aba6:
@@ -579,7 +579,9 @@ with aba6:
     rfm = df_f.groupby("Nome Cliente").agg(
         Recencia=("Data do Pedido", lambda x: (max_date - x.max()).days),
         Frequencia=("Pedido", "nunique"),
-        Monetario=("Faturamento Líquido", "sum")
+        Monetario=("Faturamento Líquido", "sum"),
+        Representantes=("Representante", lambda x: list(set(x))),
+        UFs=("UF", lambda x: list(set(x)))
     ).reset_index()
 
     # =============================
@@ -600,11 +602,83 @@ with aba6:
 
     rfm["Segmento"] = rfm.apply(classificar_rfm, axis=1)
 
-    # =============================
+    # ============================================================
+    # FILTROS INTERNOS DA ABA RMF
+    # ============================================================
+
+    st.write("### 🔎 Filtros RFM Específicos")
+
+    colf1, colf2, colf3 = st.columns(3)
+
+    # Representante
+    reps_rfm = colf1.multiselect(
+        "Representante",
+        sorted(df["Representante"].dropna().unique())
+    )
+
+    # Segmento
+    segs_rfm = colf2.multiselect(
+        "Segmento RFM",
+        sorted(rfm["Segmento"].unique())
+    )
+
+    # UF
+    ufs_rfm = colf3.multiselect(
+        "UF",
+        sorted(df["UF"].dropna().unique())
+    )
+
+    # Filtros numéricos
+    colf4, colf5, colf6 = st.columns(3)
+
+    rec_max = colf4.slider(
+        "Recência Máxima (dias)",
+        int(rfm["Recencia"].min()),
+        int(rfm["Recencia"].max()),
+        int(rfm["Recencia"].max())
+    )
+
+    freq_min = colf5.number_input(
+        "Frequência mínima",
+        min_value=int(rfm["Frequencia"].min()),
+        max_value=int(rfm["Frequencia"].max()),
+        value=int(rfm["Frequencia"].min())
+    )
+
+    monet_min = colf6.number_input(
+        "Monetário mínimo (R$)",
+        min_value=0.0,
+        value=0.0,
+        step=100.0
+    )
+
+    # ============================================================
+    # APLICAR FILTROS INTERNOS
+    # ============================================================
+
+    rfm_f = rfm.copy()
+
+    if len(reps_rfm) > 0:
+        rfm_f = rfm_f[rfm_f["Representantes"].apply(lambda x: any(r in x for r in reps_rfm))]
+
+    if len(segs_rfm) > 0:
+        rfm_f = rfm_f[rfm_f["Segmento"].isin(segs_rfm)]
+
+    if len(ufs_rfm) > 0:
+        rfm_f = rfm_f[rfm_f["UFs"].apply(lambda x: any(u in x for u in ufs_rfm))]
+
+    rfm_f = rfm_f[
+        (rfm_f["Recencia"] <= rec_max) &
+        (rfm_f["Frequencia"] >= freq_min) &
+        (rfm_f["Monetario"] >= monet_min)
+    ]
+
+    # ============================================================
     # FORMATAÇÃO CORPORATIVA
-    # =============================
+    # ============================================================
+
     rfm_fmt = format_dataframe(
-        rfm.sort_values("Monetario", ascending=False),
+        rfm_f.sort_values("Monetario", ascending=False),
         money_cols=["Monetario"],
         pct_cols=[],
         int_cols=["Recencia", "Frequencia"]
@@ -612,12 +686,12 @@ with aba6:
 
     st.dataframe(rfm_fmt, use_container_width=True)
 
-    # =============================
-    # GRÁFICO EXECUTIVO DE SEGMENTOS
-    # =============================
-    st.subheader("Distribuição por Segmento RFM")
+    # ============================================================
+    # GRÁFICO RMF
+    # ============================================================
+    st.subheader("Distribuição por Segmento RFM – Após Filtros")
 
-    seg = rfm["Segmento"].value_counts().reset_index()
+    seg = rfm_f["Segmento"].value_counts().reset_index()
     seg.columns = ["Segmento", "Clientes"]
 
     fig_rfm = px.bar(
@@ -625,9 +699,10 @@ with aba6:
         x="Segmento",
         y="Clientes",
         color="Segmento",
-        title="Segmentação RFM – Clientes por Grupo"
+        title="Segmentação RFM – Clientes por Grupo (Filtrados)"
     )
     st.plotly_chart(fig_rfm, use_container_width=True)
+
 
 
 
