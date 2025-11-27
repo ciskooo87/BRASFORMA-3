@@ -478,7 +478,6 @@ with aba1:
 
     st.dataframe(cli_fmt, use_container_width=True)
 
-
 # ============================================================
 # REPRESENTANTES
 # ============================================================
@@ -491,7 +490,7 @@ with aba2:
     df_rep_periodo = df_f.copy()
 
     # ----------------------------------------
-    # IDENTIFICAR HISTÓRICO
+    # IDENTIFICAR HISTÓRICO (ANTES DO PERÍODO FILTRADO)
     # ----------------------------------------
     df_historico = df[df["Data / Mês"] < df_f["Data / Mês"].min()]
 
@@ -508,12 +507,18 @@ with aba2:
     )
 
     # ----------------------------------------
-    # COMBINAR E AJUSTAR
+    # COMBINAR HISTÓRICO x PERÍODO ATUAL
     # ----------------------------------------
-    clientes_merge = pd.concat([historico_por_rep, periodo_por_rep], axis=1)
+    clientes_merge = pd.concat(
+        [historico_por_rep, periodo_por_rep],
+        axis=1
+    )
 
+    # ----------------------------------------
+    # PROTEÇÃO CONTRA NaN E TIPOS INVÁLIDOS
+    # ----------------------------------------
     def safe_list(v):
-        if isinstance(v, (list, tuple, set, np.ndarray)):
+        if isinstance(v, (list, tuple, np.ndarray, set)):
             return list(v)
         if pd.isna(v):
             return []
@@ -526,18 +531,20 @@ with aba2:
     # CÁLCULO DE NOVOS E NÃO ATENDIDOS
     # ----------------------------------------
     clientes_merge["ClientesNovos"] = clientes_merge.apply(
-        lambda x: list(set(x.ClientesAtuais) - set(x.ClientesHistoricos)), axis=1
+        lambda x: list(set(x.ClientesAtuais) - set(x.ClientesHistoricos)),
+        axis=1
     )
 
     clientes_merge["ClientesNaoAtendidos"] = clientes_merge.apply(
-        lambda x: list(set(x.ClientesHistoricos) - set(x.ClientesAtuais)), axis=1
+        lambda x: list(set(x.ClientesHistoricos) - set(x.ClientesAtuais)),
+        axis=1
     )
 
     clientes_merge["QtdClientesNovos"] = clientes_merge["ClientesNovos"].apply(len)
     clientes_merge["QtdClientesNaoAtendidos"] = clientes_merge["ClientesNaoAtendidos"].apply(len)
 
     # ----------------------------------------
-    # PERFORMANCE PRINCIPAL
+    # PERFORMANCE NUMÉRICA PRINCIPAL
     # ----------------------------------------
     rep = df_rep_periodo.groupby("Representante", as_index=False).agg(
         FatLiq=("Faturamento Líquido", "sum"),
@@ -550,14 +557,16 @@ with aba2:
     )
 
     rep["Ticket Médio"] = rep["FatLiq"] / rep["Pedidos"]
-    rep["Margem Bruta (%)"] = np.where(rep["FatBruto"] > 0,
+    rep["Margem Bruta (%)"] = np.where(
+        rep["FatBruto"] > 0,
         100 * (rep["FatBruto"] - rep["CustoTotal"]) / rep["FatBruto"],
-        np.nan)
-
-    rep["Margem Líquida (%)"] = np.where(rep["FatLiq"] > 0,
+        np.nan
+    )
+    rep["Margem Líquida (%)"] = np.where(
+        rep["FatLiq"] > 0,
         100 * (rep["FatLiq"] - rep["CustoTotal"]) / rep["FatLiq"],
-        np.nan)
-
+        np.nan
+    )
     rep["% Impostos"] = rep["Impostos"] / rep["FatBruto"] * 100
 
     # ----------------------------------------
@@ -572,16 +581,14 @@ with aba2:
         how="left"
     )
 
-    # ----------------------------------------
-    # AJUSTES FINAIS
-    # ----------------------------------------
+    # Ajuste final de listas e inteiros
     rep["ClientesNovos"] = rep["ClientesNovos"].apply(lambda x: x if isinstance(x, list) else [])
     rep["ClientesNaoAtendidos"] = rep["ClientesNaoAtendidos"].apply(lambda x: x if isinstance(x, list) else [])
     rep["QtdClientesNovos"] = rep["QtdClientesNovos"].fillna(0).astype(int)
     rep["QtdClientesNaoAtendidos"] = rep["QtdClientesNaoAtendidos"].fillna(0).astype(int)
 
     # ----------------------------------------
-    # FORMATAÇÃO FINAL TABELA
+    # FORMATAÇÃO CORPORATIVA
     # ----------------------------------------
     rep_fmt = format_dataframe(
         rep.sort_values("FatLiq", ascending=False),
@@ -592,28 +599,41 @@ with aba2:
 
     st.dataframe(rep_fmt, use_container_width=True)
 
-    # ----------------------------------------
-    # DETALHAMENTO
-    # ----------------------------------------
+    # ============================================================
+    # DETALHAMENTO POR REPRESENTANTE – DENTRO DA ABA
+    # ============================================================
     st.markdown("## 👥 Detalhamento por Representante")
 
-    rep_select = st.selectbox("Selecione o Representante", rep["Representante"].unique())
+    rep_select = st.selectbox(
+        "Selecione o Representante",
+        rep["Representante"].unique()
+    )
 
     det = rep[rep["Representante"] == rep_select].iloc[0]
 
     col1, col2 = st.columns(2)
 
+    # ----------------- Clientes novos -----------------
     with col1:
-        st.write("### 🟢 Clientes Novos no Período")
-        tabela_novos = pd.DataFrame({"Clientes Novos": det["ClientesNovos"]})
-        st.dataframe(tabela_novos, use_container_width=True)
+        st.write("### 🟢 Clientes Novos Atendidos no Período")
+        clientes_novos_list = det["ClientesNovos"]
 
+        if len(clientes_novos_list) == 0:
+            st.info("Nenhum cliente novo atendido no período.")
+        else:
+            tabela_novos = pd.DataFrame({"Clientes Novos": clientes_novos_list})
+            st.dataframe(tabela_novos, use_container_width=True)
+
+    # ------------- Clientes não atendidos --------------
     with col2:
         st.write("### 🔴 Clientes Não Atendidos")
-        tabela_nao = pd.DataFrame({"Clientes Não Atendidos": det["ClientesNaoAtendidos"]})
-        st.dataframe(tabela_nao, use_container_width=True)
+        clientes_nao_list = det["ClientesNaoAtendidos"]
 
-
+        if len(clientes_nao_list) == 0:
+            st.success("Nenhum cliente perdido ou não atendido no período.")
+        else:
+            tabela_nao = pd.DataFrame({"Clientes Não Atendidos": clientes_nao_list})
+            st.dataframe(tabela_nao, use_container_width=True)
 
 # ============================================================
 # UF / GEOGRAFIA
