@@ -267,7 +267,7 @@ rep_select_clientes = st.selectbox(
     "Selecione o representante para análise de clientes",
     rep["Representante"].unique(),
     key="rep_clientes"
-)
+    )
 
 df_rep = df_f[df_f["Representante"] == rep_select_clientes]
 
