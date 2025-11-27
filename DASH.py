@@ -7,6 +7,15 @@ import pandas as pd
 import numpy as np
 import plotly.express as px
 
+from inteligencia_comercial import (
+    clientes_em_crescimento,
+    clientes_em_queda,
+    skus_em_tendencia,
+    cesta_por_regiao,
+    detectar_anomalias
+)
+
+
 # ============================================================
 # CONFIGURAÇÃO INICIAL
 # ============================================================
@@ -256,6 +265,37 @@ with aba5:
         Pedidos=("Pedido","nunique")
     )
     st.dataframe(atrasos)
+
+st.header("🧠 Inteligência Comercial")
+
+tab1, tab2, tab3, tab4, tab5 = st.tabs([
+    "Clientes em Crescimento",
+    "Clientes em Queda",
+    "Tendência de SKUs",
+    "Cesta por Região",
+    "Anomalias"
+])
+
+with tab1:
+    st.subheader("Clientes em Crescimento (Emergentes)")
+    st.dataframe(clientes_em_crescimento(df_f))
+
+with tab2:
+    st.subheader("Clientes em Queda (Risco)")
+    st.dataframe(clientes_em_queda(df_f))
+
+with tab3:
+    st.subheader("Tendência de SKUs")
+    st.dataframe(skus_em_tendencia(df_f))
+
+with tab4:
+    st.subheader("Cesta Comercial por Região (Top 5)")
+    st.dataframe(cesta_por_regiao(df_f))
+
+with tab5:
+    st.subheader("Anomalias Comerciais")
+    st.dataframe(detectar_anomalias(df_f))
+
 
 
 # ============================================================
