@@ -363,9 +363,7 @@ with aba2:
     # ----------------------------------------
     # IDENTIFICAR HISTÓRICO
     # ----------------------------------------
-    df_historico = df[
-        df["Data / Mês"] < df_f["Data / Mês"].min()
-    ]
+    df_historico = df[df["Data / Mês"] < df_f["Data / Mês"].min()]
 
     historico_por_rep = (
         df_historico.groupby("Representante")["Nome Cliente"]
@@ -382,10 +380,7 @@ with aba2:
     # ----------------------------------------
     # COMBINAR
     # ----------------------------------------
-    clientes_merge = pd.concat(
-        [historico_por_rep, periodo_por_rep],
-        axis=1
-    )
+    clientes_merge = pd.concat([historico_por_rep, periodo_por_rep], axis=1)
 
     # ----------------------------------------
     # PROTEÇÃO CONTRA NaN E TIPOS INVÁLIDOS
@@ -452,17 +447,16 @@ with aba2:
         left_on="Representante",
         right_index=True,
         how="left"
-      )
+    )
 
-    # ====== PATCH DEFINITIVO – substitui NaN em colunas de lista ======
+    # Ajuste final de listas
     rep["ClientesNovos"] = rep["ClientesNovos"].apply(lambda x: x if isinstance(x, list) else [])
     rep["ClientesNaoAtendidos"] = rep["ClientesNaoAtendidos"].apply(lambda x: x if isinstance(x, list) else [])
     rep["QtdClientesNovos"] = rep["QtdClientesNovos"].fillna(0).astype(int)
     rep["QtdClientesNaoAtendidos"] = rep["QtdClientesNaoAtendidos"].fillna(0).astype(int)
 
-
     # ----------------------------------------
-    # FORMATAÇÃO CORPORATIVA
+    # FORMATAÇÃO
     # ----------------------------------------
     rep_fmt = format_dataframe(
         rep.sort_values("FatLiq", ascending=False),
@@ -473,49 +467,46 @@ with aba2:
 
     st.dataframe(rep_fmt, use_container_width=True)
 
-    # ----------------------------------------
-    # DETALHAMENTO
-    # ----------------------------------------
-    st.subheader("👥 Detalhamento por Representante")
+    # ============================================================
+    # DETALHAMENTO POR REPRESENTANTE – DENTRO DA ABA
+    # ============================================================
+    st.markdown("## 👥 Detalhamento por Representante")
 
-    st.subheader("👥 Detalhamento por Representante")
+    rep_select = st.selectbox("Selecione o Representante", rep["Representante"].unique())
 
-rep_select = st.selectbox("Selecione o Representante", rep["Representante"].unique())
+    det = rep[rep["Representante"] == rep_select].iloc[0]
 
-det = rep[rep["Representante"] == rep_select].iloc[0]
+    col1, col2 = st.columns(2)
 
-col1, col2 = st.columns(2)
+    # ============================================================
+    # CLIENTES NOVOS
+    # ============================================================
+    with col1:
+        st.write("### 🟢 Clientes Novos Atendidos no Período")
 
-# ============================================================
-# 1) TABELA DE CLIENTES NOVOS
-# ============================================================
+        clientes_novos_list = det["ClientesNovos"]
 
-st.write("### 🟢 Clientes Novos Atendidos no Período")
+        if len(clientes_novos_list) == 0:
+            st.info("Nenhum cliente novo atendido no período.")
+        else:
+            tabela_novos = pd.DataFrame({"Clientes Novos": clientes_novos_list})
+            tabela_novos_fmt = apply_global_formatting(tabela_novos)
+            st.dataframe(tabela_novos_fmt, use_container_width=True)
 
-clientes_novos_list = det["ClientesNovos"]
+    # ============================================================
+    # CLIENTES NÃO ATENDIDOS
+    # ============================================================
+    with col2:
+        st.write("### 🔴 Clientes Não Atendidos")
 
-if len(clientes_novos_list) == 0:
-    st.info("Nenhum cliente novo atendido no período.")
-else:
-    tabela_novos = pd.DataFrame({"Clientes Novos": clientes_novos_list})
-    tabela_novos_fmt = apply_global_formatting(tabela_novos)
-    st.dataframe(tabela_novos_fmt, use_container_width=True)
+        clientes_nao_list = det["ClientesNaoAtendidos"]
 
-
-# ============================================================
-# 2) TABELA DE CLIENTES NÃO ATENDIDOS
-# ============================================================
-
-st.write("### 🔴 Clientes Não Atendidos")
-
-clientes_nao_list = det["ClientesNaoAtendidos"]
-
-if len(clientes_nao_list) == 0:
-    st.success("Nenhum cliente perdido ou não atendido no período.")
-else:
-    tabela_nao = pd.DataFrame({"Clientes Não Atendidos": clientes_nao_list})
-    tabela_nao_fmt = apply_global_formatting(tabela_nao)
-    st.dataframe(tabela_nao_fmt, use_container_width=True)
+        if len(clientes_nao_list) == 0:
+            st.success("Nenhum cliente perdido ou não atendido no período.")
+        else:
+            tabela_nao = pd.DataFrame({"Clientes Não Atendidos": clientes_nao_list})
+            tabela_nao_fmt = apply_global_formatting(tabela_nao)
+            st.dataframe(tabela_nao_fmt, use_container_width=True)
 
 
 
