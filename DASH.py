@@ -534,24 +534,18 @@ aba1, aba2, aba3, aba4, aba5, aba6 = st.tabs([
 with aba1:
     st.subheader("📌 Clientes – Inteligência Comercial Avançada (FULL)")
 
-    # ==========================================
-    # PREPARAÇÃO DAS BASES
-    # ==========================================
+    # Base filtrada e completa
     base = df.copy()
-    periodo = df_f.copy()
+    periodo_df = df_f.copy()
 
-    # Proteção para datas
+    # Datas do filtro (garantido)
+    d_ini_ts = pd.to_datetime(periodo[0])
+    d_fim_ts = pd.to_datetime(periodo[1])
+
+    # Proteções
     base["Data / Mês"] = pd.to_datetime(base["Data / Mês"], errors="coerce")
-    periodo["Data / Mês"] = pd.to_datetime(periodo["Data / Mês"], errors="coerce")
+    periodo_df["Data / Mês"] = pd.to_datetime(periodo_df["Data / Mês"], errors="coerce")
 
-    d_ini_ts = pd.to_datetime(d_ini) if d_ini is not None else base["Data / Mês"].min()
-    d_fim_ts = pd.to_datetime(d_fim) if d_fim is not None else base["Data / Mês"].max()
-
-    ult_12m_ini = d_fim_ts - pd.DateOffset(months=12)
-    ult_3m_ini  = d_fim_ts - pd.DateOffset(months=3)
-
-    base12 = base[(base["Data / Mês"] >= ult_12m_ini) & (base["Data / Mês"] <= d_fim_ts)]
-    base3 = base[(base["Data / Mês"] >= ult_3m_ini) & (base["Data / Mês"] <= d_fim_ts)]
 
     # ==========================================
     # KPIs AVANÇADOS
