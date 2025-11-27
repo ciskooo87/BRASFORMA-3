@@ -232,14 +232,107 @@ with aba1:
     st.dataframe(cli.sort_values("FatLiq", ascending=False))
 
 with aba2:
-    st.subheader("Performance por Representante")
+    st.subheader("📌 Performance Geral por Representante")
+
     rep = df_f.groupby("Representante", as_index=False).agg(
-        FatLiq=("Faturamento Líquido","sum"),
-        FatBruto=("Valor Pedido R$","sum"),
-        Impostos=("Imposto Total","sum"),
-        Lucro=("Lucro Bruto","sum")
+        FatLiq=("Faturamento Líquido", "sum"),
+        FatBruto=("Valor Pedido R$", "sum"),
+        Impostos=("Imposto Total", "sum"),
+        CustoTotal=("Custo Total", "sum"),
+        Pedidos=("Pedido", "nunique"),
+        ClientesAtivos=("Nome Cliente", "nunique"),
+        QtdItens=("Quant. Pedidos", "sum")
     )
-    st.dataframe(rep.sort_values("FatLiq", ascending=False))
+
+    rep["Ticket Médio"] = rep["FatLiq"] / rep["Pedidos"]
+    rep["Margem Bruta (%)"] = np.where(
+        rep["FatBruto"] > 0, 
+        100 * (rep["FatBruto"] - rep["CustoTotal"]) / rep["FatBruto"], 
+        np.nan
+    )
+    rep["Margem Líquida (%)"] = np.where(
+        rep["FatLiq"] > 0,
+        100 * (rep["FatLiq"] - rep["CustoTotal"]) / rep["FatLiq"],
+        np.nan
+    )
+    rep["% Impostos"] = rep["Impostos"] / rep["FatBruto"] * 100
+
+    st.dataframe(
+        rep.sort_values("FatLiq", ascending=False),
+        use_container_width=True
+    )
+
+    # ======================
+    # GRÁFICO CORPORATIVO
+    # ======================
+    st.markdown("### 📊 Faturamento x Margem Bruta")
+
+    fig = px.bar(
+        rep.sort_values("FatLiq", ascending=False),
+        x="Representante",
+        y="FatLiq",
+        labels={"FatLiq": "Faturamento Líquido"},
+        text_auto=".2s",
+        color="Margem Bruta (%)",
+        color_continuous_scale="Blues"
+    )
+    fig.update_layout(
+        height=420,
+        title="Ranking por Faturamento e Margem",
+        xaxis_title="Representante",
+        yaxis_title="Faturamento (R$)"
+    )
+    st.plotly_chart(fig, use_container_width=True)
+
+    # ======================
+    # MIX DE PRODUTOS
+    # ======================
+    st.markdown("### 🎯 Top 5 SKUs por Representante")
+
+    rep_select = st.selectbox(
+        "Selecione um representante",
+        rep["Representante"].unique()
+    )
+
+    df_rep = df_f[df_f["Representante"] == rep_select]
+
+    mix = df_rep.groupby("ITEM", as_index=False).agg(
+        FatLiq=("Faturamento Líquido", "sum")
+    )
+    mix["%"] = mix["FatLiq"] / mix["FatLiq"].sum() * 100
+
+    mix_top5 = mix.sort_values("%", ascending=False).head(5)
+
+    st.dataframe(
+        mix_top5,
+        use_container_width=True
+    )
+
+    fig2 = px.pie(
+        mix_top5,
+        names="ITEM",
+        values="FatLiq",
+        title=f"Mix de Produtos – {rep_select}",
+        hole=0.4
+    )
+    st.plotly_chart(fig2, use_container_width=True)
+
+    # ======================
+    # CURVA ABC
+    # ======================
+    st.markdown("### 🔻 Curva ABC por Representante")
+
+    abc = mix.sort_values("FatLiq", ascending=False).reset_index(drop=True)
+    abc["% Linha"] = (abc["FatLiq"] / abc["FatLiq"].sum()) * 100
+    abc["% Acum"] = abc["% Linha"].cumsum()
+
+    st.dataframe(
+        abc[["ITEM", "FatLiq", "% Linha", "% Acum"]],
+        use_container_width=True
+    )
+
+    st.line_chart(abc["% Acum"])
+
 
 with aba3:
     st.subheader("Faturamento por UF")
