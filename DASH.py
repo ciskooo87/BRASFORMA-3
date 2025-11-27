@@ -261,6 +261,41 @@ with aba2:
         rep.sort_values("FatLiq", ascending=False),
         use_container_width=True
     )
+    st.markdown("### 👥 Análise de Clientes (Novos x Não Atendidos)")
+
+rep_select_clientes = st.selectbox(
+    "Selecione o representante para análise de clientes",
+    rep["Representante"].unique(),
+    key="rep_clientes"
+)
+
+df_rep = df_f[df_f["Representante"] == rep_select_clientes]
+
+# --- CLIENTES ATENDIDOS NO PERÍODO ---
+clientes_periodo = set(df_rep["Nome Cliente"].unique())
+
+# --- CLIENTES HISTÓRICOS (ANTES DO FILTRO) ---
+df_hist = df[df["Representante"] == rep_select_clientes]
+clientes_historicos = set(df_hist["Nome Cliente"].unique())
+
+# --- CLIENTES NOVOS ---
+clientes_novos = clientes_periodo - clientes_historicos
+
+# --- CLIENTES NÃO ATENDIDOS ---
+clientes_nao_atendidos = clientes_historicos - clientes_periodo
+
+colA, colB = st.columns(2)
+
+with colA:
+    st.subheader("🆕 Clientes Novos no Período")
+    df_novos = pd.DataFrame(sorted(list(clientes_novos)), columns=["Cliente"])
+    st.dataframe(df_novos, use_container_width=True)
+
+with colB:
+    st.subheader("🚫 Clientes Não Atendidos no Período")
+    df_nao = pd.DataFrame(sorted(list(clientes_nao_atendidos)), columns=["Cliente"])
+    st.dataframe(df_nao, use_container_width=True)
+
 
     # ======================
     # GRÁFICO CORPORATIVO
