@@ -302,7 +302,7 @@ if clientes:
 
 
 # ============================================================
-# VISÃO EXECUTIVA – REFINADA
+# VISÃO EXECUTIVA – COMPLETA, COM RESUMO E IA
 # ============================================================
 
 st.markdown("## 📊 Visão Executiva – Panorama Geral")
@@ -317,6 +317,9 @@ custo_total = df_f["Custo Total"].sum()
 margem_bruta = ((fat_bruto - custo_total) / fat_bruto * 100) if fat_bruto > 0 else 0
 ticket_medio = fat_liq / pedidos if pedidos > 0 else 0
 
+# ------------------------------------------------------------
+# PRIMEIRA LINHA DE KPIs
+# ------------------------------------------------------------
 col1, col2, col3, col4 = st.columns(4)
 
 with col1:
@@ -352,7 +355,9 @@ with col4:
     """, unsafe_allow_html=True)
 
 
-# ---- Segunda linha de KPIs ----
+# ------------------------------------------------------------
+# SEGUNDA LINHA DE KPIs
+# ------------------------------------------------------------
 col5, col6, col7, col8 = st.columns(4)
 
 with col5:
@@ -387,15 +392,98 @@ with col8:
     </div>
     """, unsafe_allow_html=True)
 
+
 st.markdown("---")
 
 
 # ============================================================
-# GRÁFICOS TEMPORAIS – TÍTULO AJUSTADO
+# RESUMO EXECUTIVO AUTOMÁTICO
+# ============================================================
+
+st.markdown("### 📰 Resumo Executivo do Período")
+
+fat_liq_prev = df[df["Data / Mês"] < df_f["Data / Mês"].min()]["Faturamento Líquido"].sum()
+pedidos_prev = df[df["Data / Mês"] < df_f["Data / Mês"].min()]["Pedido"].nunique()
+clientes_prev = df[df["Data / Mês"] < df_f["Data / Mês"].min()]["Nome Cliente"].nunique()
+
+var_fat = ((fat_liq - fat_liq_prev) / fat_liq_prev * 100) if fat_liq_prev > 0 else 0
+var_ped = ((pedidos - pedidos_prev) / pedidos_prev * 100) if pedidos_prev > 0 else 0
+var_cli = ((clientes - clientes_prev) / clientes_prev * 100) if clientes_prev > 0 else 0
+
+resumo = f"""
+No período analisado, a operação registrou um **faturamento líquido de {fmt_money(fat_liq)}**, 
+apresentando uma variação de **{fmt_pct(var_fat)}** em relação ao período anterior.
+
+Foram processados **{fmt_int(pedidos)} pedidos**, com variação de **{fmt_pct(var_ped)}**, 
+enquanto a base de clientes ativos atingiu **{fmt_int(clientes)}**, mudando **{fmt_pct(var_cli)}**.
+
+A margem bruta permaneceu em **{fmt_pct(margem_bruta)}**, refletindo o impacto do mix comercial, 
+comportamento das tabelas de preço e o peso dos impostos (**{fmt_money(impostos)}** no período).
+"""
+
+st.info(resumo)
+
+
+# ============================================================
+# INSIGHTS DA IA – ANÁLISE AUTOMÁTICA
+# ============================================================
+
+st.markdown("### 🤖 Insights Automáticos da IA Comercial")
+
+insights = []
+
+# 1 — Margem
+if margem_bruta < 30:
+    insights.append(f"Margem bruta baixa (**{fmt_pct(margem_bruta)}**) sugere pressão de custo ou descontos elevados.")
+elif margem_bruta > 45:
+    insights.append(f"Margem bruta alta (**{fmt_pct(margem_bruta)}**) indica mix saudável e boa disciplina comercial.")
+
+# 2 — Impostos
+perc_imp = (impostos / fat_bruto * 100) if fat_bruto > 0 else 0
+if perc_imp > 22:
+    insights.append(f"A carga tributária (**{fmt_pct(perc_imp)}**) está acima da média ideal para o setor.")
+else:
+    insights.append(f"A carga tributária (**{fmt_pct(perc_imp)}**) encontra-se em faixa aceitável.")
+
+# 3 — Clientes
+if var_cli < 0:
+    insights.append("Queda na base de clientes — ações de reativação devem ser priorizadas.")
+elif var_cli > 5:
+    insights.append("A base de clientes cresceu acima do esperado — oportunidade de fortalecer recorrência.")
+
+# 4 — Concentração em Top clientes
+top5 = df_f.groupby("Nome Cliente")["Faturamento Líquido"].sum().nlargest(5)
+perc_top5 = top5.sum() / fat_liq * 100 if fat_liq > 0 else 0
+
+if perc_top5 > 45:
+    insights.append(
+        f"Concentração elevada: os 5 maiores clientes representam **{fmt_pct(perc_top5)}** do faturamento."
+    )
+else:
+    insights.append(
+        f"Concentração dos 5 maiores clientes está saudável (**{fmt_pct(perc_top5)}**)."
+    )
+
+# 5 — Churn (clientes não atendidos)
+total_nao = rep["QtdClientesNaoAtendidos"].sum()
+if total_nao > 40:
+    insights.append(f"Foram identificados **{fmt_int(total_nao)} clientes não atendidos**, indicando risco de churn.")
+else:
+    insights.append("Nível de clientes não atendidos controlado, sem alertas críticos.")
+
+# Renderiza insights
+for item in insights:
+    st.warning("• " + item)
+
+
+st.markdown("---")
+
+
+# ============================================================
+# GRÁFICOS TEMPORAIS
 # ============================================================
 
 st.markdown("### 📈 Evolução Mensal")
-
 
 dfm = df_f.groupby("Ano-Mes", as_index=False).agg(
     FatLiq=("Faturamento Líquido", "sum"),
@@ -408,6 +496,7 @@ st.plotly_chart(fig, use_container_width=True)
 
 fig2 = px.bar(dfm, x="Ano-Mes", y="Impostos", title="Impostos por Mês")
 st.plotly_chart(fig2, use_container_width=True)
+
 
 # ============================================================
 # ABAS DE ANÁLISE
