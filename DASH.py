@@ -250,12 +250,12 @@ def load_brasforma(path: str, sheet="BD DASH"):
 df = load_brasforma("Dashboard - Comite Semanal - Brasforma IA (1).xlsx")
 
 # ============================================================
-# SIDEBAR – FILTROS (VERSÃO COMPLETA)
+# SIDEBAR – FILTROS
 # ============================================================
 
 st.sidebar.header("Filtros")
 
-# ---- Período ----
+# Período
 min_d = df["Data / Mês"].min()
 max_d = df["Data / Mês"].max()
 
@@ -266,68 +266,53 @@ periodo = st.sidebar.date_input(
     max_value=max_d,
 )
 
-df_f = df[
-    (df["Data / Mês"] >= pd.to_datetime(periodo[0])) &
-    (df["Data / Mês"] <= pd.to_datetime(periodo[1]))
-].copy()
+df_f = df.copy()
+df_f = df_f[
+    (df_f["Data / Mês"] >= pd.to_datetime(periodo[0])) &
+    (df_f["Data / Mês"] <= pd.to_datetime(periodo[1]))
+]
+# ============================================================
+# PRÉ-CÁLCULO GLOBAL (seguro) – usado pela Visão Executiva
+# ============================================================
 
-# ---- Filtro de Transação (COLUNA C) ----
-if "Transação" in df.columns:
-    transacoes = sorted(df["Transação"].dropna().unique())
-else:
-    # proteção caso a coluna tenha outro nome
-    possiveis = df.columns[2]
-    df.rename(columns={possiveis: "Transação"}, inplace=True)
-    transacoes = sorted(df["Transação"].dropna().unique())
+# Histórico antes do período filtrado
+df_historico_global = df[df["Data / Mês"] < df_f["Data / Mês"].min()]
 
-trans_sel = st.sidebar.multiselect("Transação", transacoes)
-if trans_sel:
-    df_f = df_f[df_f["Transação"].isin(trans_sel)]
+# Clientes históricos por representante
+hist_global = (
+    df_historico_global.groupby("Representante")["Nome Cliente"]
+    .nunique()
+    .rename("ClientesHistoricos")
+)
 
-# ---- Regional ----
-if "Regional" in df.columns:
-    regionais = sorted(df["Regional"].dropna().unique())
-    reg_sel = st.sidebar.multiselect("Regional", regionais)
-    if reg_sel:
-        df_f = df_f[df_f["Regional"].isin(reg_sel)]
+# Clientes atendidos no período atual
+periodo_global = (
+    df_f.groupby("Representante")["Nome Cliente"]
+    .nunique()
+    .rename("ClientesAtuais")
+)
 
-# ---- Representante ----
-if "Representante" in df.columns:
-    reps = sorted(df["Representante"].dropna().unique())
-    rep_sel = st.sidebar.multiselect("Representante", reps)
-    if rep_sel:
-        df_f = df_f[df_f["Representante"].isin(rep_sel)]
+# Junta tudo corretamente, alinhando índices
+rep_global = pd.concat([hist_global, periodo_global], axis=1)
 
-# ---- UF ----
-if "UF" in df.columns:
-    ufs = sorted(df["UF"].dropna().unique())
-    uf_sel = st.sidebar.multiselect("UF", ufs)
-    if uf_sel:
-        df_f = df_f[df_f["UF"].isin(uf_sel)]
+# Preenche faltas com zero
+rep_global = rep_global.fillna(0)
 
-# ---- Status de Produção / Faturamento ----
-if "Status de Produção / Faturamento" in df.columns:
-    status = sorted(df["Status de Produção / Faturamento"].dropna().unique())
-    status_sel = st.sidebar.multiselect("Status Prod./Fat.", status)
-    if status_sel:
-        df_f = df_f[df_f["Status de Produção / Faturamento"].isin(status_sel)]
+# Converte tudo para inteiro
+rep_global = rep_global.astype(int)
 
-# ---- Cliente (texto) ----
-if "Nome Cliente" in df.columns:
-    cliente_txt = st.sidebar.text_input("Cliente (contém)")
-    if cliente_txt.strip():
-        df_f = df_f[
-            df_f["Nome Cliente"].astype(str).str.contains(cliente_txt, case=False, na=False)
-        ]
+# Calcula novos e não atendidos
+rep_global["QtdClientesNovos"] = (
+    rep_global["ClientesAtuais"] - rep_global["ClientesHistoricos"]
+).clip(lower=0)
 
-# ---- SKU / Item ----
-if "ITEM" in df.columns:
-    item_txt = st.sidebar.text_input("SKU/Item (contém)")
-    if item_txt.strip():
-        df_f = df_f[
-            df_f["ITEM"].astype(str).str.contains(item_txt, case=False, na=False)
-        ]
+rep_global["QtdClientesNaoAtendidos"] = (
+    rep_global["ClientesHistoricos"] - rep_global["ClientesAtuais"]
+).clip(lower=0)
 
+# Somatórios globais usados pela Visão Executiva
+total_novos_global = int(rep_global["QtdClientesNovos"].sum())
+total_nao_global = int(rep_global["QtdClientesNaoAtendidos"].sum())
 
 
 # ============================================================
@@ -493,6 +478,7 @@ with aba1:
 
     st.dataframe(cli_fmt, use_container_width=True)
 
+
 # ============================================================
 # REPRESENTANTES
 # ============================================================
@@ -505,7 +491,7 @@ with aba2:
     df_rep_periodo = df_f.copy()
 
     # ----------------------------------------
-    # IDENTIFICAR HISTÓRICO (ANTES DO PERÍODO FILTRADO)
+    # IDENTIFICAR HISTÓRICO
     # ----------------------------------------
     df_historico = df[df["Data / Mês"] < df_f["Data / Mês"].min()]
 
@@ -522,12 +508,9 @@ with aba2:
     )
 
     # ----------------------------------------
-    # COMBINAR HISTÓRICO x PERÍODO ATUAL
+    # COMBINAR
     # ----------------------------------------
-    clientes_merge = pd.concat(
-        [historico_por_rep, periodo_por_rep],
-        axis=1
-    )
+    clientes_merge = pd.concat([historico_por_rep, periodo_por_rep], axis=1)
 
     # ----------------------------------------
     # PROTEÇÃO CONTRA NaN E TIPOS INVÁLIDOS
@@ -596,15 +579,48 @@ with aba2:
         how="left"
     )
 
-    # Ajuste final de listas e inteiros
+    # Ajuste final de listas
     rep["ClientesNovos"] = rep["ClientesNovos"].apply(lambda x: x if isinstance(x, list) else [])
     rep["ClientesNaoAtendidos"] = rep["ClientesNaoAtendidos"].apply(lambda x: x if isinstance(x, list) else [])
-    rep["QtdClientesNovos"] = rep["QtdClientesNovos"].fillna(0).astype(int)
+    # garante valor numérico simples
+try:
+    total_novos_global = int(total_novos_global)
+except:
+    total_novos_global = 0
+
     rep["QtdClientesNaoAtendidos"] = rep["QtdClientesNaoAtendidos"].fillna(0).astype(int)
 
     # ----------------------------------------
-    # FORMATAÇÃO CORPORATIVA
+    # FORMATAÇÃO
     # ----------------------------------------
+
+    # ============================================================
+# PRÉ-CÁLCULO GLOBAL PARA O DASH — VALORES USADOS NA VISÃO EXECUTIVA
+# ============================================================
+
+# estrutura base — garante que sempre exista algo
+rep_global = df_f.groupby("Representante", as_index=False).agg(
+    QtdClientesNaoAtendidos=("Nome Cliente", lambda x: 0),
+    QtdClientesNovos=("Nome Cliente", lambda x: 0)
+)
+
+# se a aba de representantes já tiver calculado rep, usamos ela
+try:
+    rep_global = rep[["Representante", "QtdClientesNaoAtendidos", "QtdClientesNovos"]]
+except:
+    pass
+
+# somatórios globais
+try:
+    total_nao_global = int(rep_global["QtdClientesNaoAtendidos"].sum())
+except:
+    total_nao_global = 0
+
+try:
+    total_novos_global = int(rep_global["QtdClientesNovos"].sum())
+except:
+    total_novos_global = 0
+
     rep_fmt = format_dataframe(
         rep.sort_values("FatLiq", ascending=False),
         money_cols=["FatLiq", "FatBruto", "Impostos", "CustoTotal", "Ticket Médio"],
@@ -619,36 +635,43 @@ with aba2:
     # ============================================================
     st.markdown("## 👥 Detalhamento por Representante")
 
-    rep_select = st.selectbox(
-        "Selecione o Representante",
-        rep["Representante"].unique()
-    )
+    rep_select = st.selectbox("Selecione o Representante", rep["Representante"].unique())
 
     det = rep[rep["Representante"] == rep_select].iloc[0]
 
     col1, col2 = st.columns(2)
 
-    # ----------------- Clientes novos -----------------
+    # ============================================================
+    # CLIENTES NOVOS
+    # ============================================================
     with col1:
         st.write("### 🟢 Clientes Novos Atendidos no Período")
+
         clientes_novos_list = det["ClientesNovos"]
 
         if len(clientes_novos_list) == 0:
             st.info("Nenhum cliente novo atendido no período.")
         else:
             tabela_novos = pd.DataFrame({"Clientes Novos": clientes_novos_list})
-            st.dataframe(tabela_novos, use_container_width=True)
+            tabela_novos_fmt = apply_global_formatting(tabela_novos)
+            st.dataframe(tabela_novos_fmt, use_container_width=True)
 
-    # ------------- Clientes não atendidos --------------
+    # ============================================================
+    # CLIENTES NÃO ATENDIDOS
+    # ============================================================
     with col2:
         st.write("### 🔴 Clientes Não Atendidos")
+
         clientes_nao_list = det["ClientesNaoAtendidos"]
 
         if len(clientes_nao_list) == 0:
             st.success("Nenhum cliente perdido ou não atendido no período.")
         else:
             tabela_nao = pd.DataFrame({"Clientes Não Atendidos": clientes_nao_list})
-            st.dataframe(tabela_nao, use_container_width=True)
+            tabela_nao_fmt = apply_global_formatting(tabela_nao)
+            st.dataframe(tabela_nao_fmt, use_container_width=True)
+
+
 
 # ============================================================
 # UF / GEOGRAFIA
