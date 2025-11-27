@@ -323,49 +323,63 @@ with aba2:
     df_rep_periodo = df_f.copy()
 
     # ----------------------------------------
-    # IDENTIFICAR CLIENTES NOVOS POR REPRESENTANTE
+    # IDENTIFICAR HISTÓRICO
     # ----------------------------------------
-    # Base histórica (antes do período filtrado)
     df_historico = df[
         df["Data / Mês"] < df_f["Data / Mês"].min()
     ]
 
-    # Clientes que já compraram antes
     historico_por_rep = (
         df_historico.groupby("Representante")["Nome Cliente"]
         .unique()
         .rename("ClientesHistoricos")
     )
 
-    # Clientes comprando agora
     periodo_por_rep = (
         df_rep_periodo.groupby("Representante")["Nome Cliente"]
         .unique()
         .rename("ClientesAtuais")
     )
 
-    # Juntar histórico + atual
-    clientes_merge = pd.concat([historico_por_rep, periodo_por_rep], axis=1).fillna(object)
+    # ----------------------------------------
+    # COMBINAR
+    # ----------------------------------------
+    clientes_merge = pd.concat(
+        [historico_por_rep, periodo_por_rep],
+        axis=1
+    )
 
-    # Calcular novos e não atendidos
+    # ----------------------------------------
+    # PROTEÇÃO CONTRA NaN E TIPOS INVÁLIDOS
+    # ----------------------------------------
+    def safe_list(v):
+        if isinstance(v, (list, tuple, np.ndarray, set)):
+            return list(v)
+        if pd.isna(v):
+            return []
+        return [v]
+
+    clientes_merge["ClientesHistoricos"] = clientes_merge["ClientesHistoricos"].apply(safe_list)
+    clientes_merge["ClientesAtuais"] = clientes_merge["ClientesAtuais"].apply(safe_list)
+
+    # ----------------------------------------
+    # CÁLCULO DE NOVOS E NÃO ATENDIDOS
+    # ----------------------------------------
     clientes_merge["ClientesNovos"] = clientes_merge.apply(
-        lambda x: list(set(x.ClientesAtuais) - set(x.ClientesHistoricos))
-        if isinstance(x.ClientesAtuais, (list, np.ndarray)) else [],
+        lambda x: list(set(x.ClientesAtuais) - set(x.ClientesHistoricos)),
         axis=1
     )
 
     clientes_merge["ClientesNaoAtendidos"] = clientes_merge.apply(
-        lambda x: list(set(x.ClientesHistoricos) - set(x.ClientesAtuais))
-        if isinstance(x.ClientesHistoricos, (list, np.ndarray)) else [],
+        lambda x: list(set(x.ClientesHistoricos) - set(x.ClientesAtuais)),
         axis=1
     )
 
-    # Quantidade
     clientes_merge["QtdClientesNovos"] = clientes_merge["ClientesNovos"].apply(len)
     clientes_merge["QtdClientesNaoAtendidos"] = clientes_merge["ClientesNaoAtendidos"].apply(len)
 
     # ----------------------------------------
-    # PERFORMANCE NUMÉRICA
+    # PERFORMANCE NUMÉRICA PRINCIPAL
     # ----------------------------------------
     rep = df_rep_periodo.groupby("Representante", as_index=False).agg(
         FatLiq=("Faturamento Líquido", "sum"),
@@ -391,19 +405,24 @@ with aba2:
     rep["% Impostos"] = rep["Impostos"] / rep["FatBruto"] * 100
 
     # ----------------------------------------
-    # JUNTAR CLIENTES NOVOS E NÃO ATENDIDOS
+    # MERGE COM CLIENTES NOVOS E NÃO ATENDIDOS
     # ----------------------------------------
     rep = rep.merge(
-        clientes_merge[["ClientesNovos", "ClientesNaoAtendidos",
-                        "QtdClientesNovos", "QtdClientesNaoAtendidos"]],
+        clientes_merge[
+            ["ClientesNovos", "ClientesNaoAtendidos", "QtdClientesNovos", "QtdClientesNaoAtendidos"]
+        ],
         left_on="Representante",
         right_index=True,
         how="left"
-    ).fillna({"ClientesNovos": [], "ClientesNaoAtendidos": [], 
-              "QtdClientesNovos": 0, "QtdClientesNaoAtendidos": 0})
+    ).fillna({
+        "ClientesNovos": [],
+        "ClientesNaoAtendidos": [],
+        "QtdClientesNovos": 0,
+        "QtdClientesNaoAtendidos": 0
+    })
 
     # ----------------------------------------
-    # FORMATAÇÃO FINAL
+    # FORMATAÇÃO CORPORATIVA
     # ----------------------------------------
     rep_fmt = format_dataframe(
         rep.sort_values("FatLiq", ascending=False),
@@ -415,7 +434,7 @@ with aba2:
     st.dataframe(rep_fmt, use_container_width=True)
 
     # ----------------------------------------
-    # EXIBIR DETALHES DOS CLIENTES NOVOS / NÃO ATENDIDOS
+    # DETALHAMENTO
     # ----------------------------------------
     st.subheader("👥 Detalhamento por Representante")
 
@@ -426,10 +445,14 @@ with aba2:
     col1, col2 = st.columns(2)
 
     col1.write("### 🟢 Clientes Novos")
-    col1.write(detalhe["ClientesNovos"] if detalhe["ClientesNovos"] else "Nenhum cliente novo.")
+    col1.write(
+        detalhe["ClientesNovos"] if detalhe["ClientesNovos"] else "Nenhum cliente novo encontrado."
+    )
 
     col2.write("### 🔴 Clientes Não Atendidos")
-    col2.write(detalhe["ClientesNaoAtendidos"] if detalhe["ClientesNaoAtendidos"] else "Nenhum cliente perdido.")
+    col2.write(
+        detalhe["ClientesNaoAtendidos"] if detalhe["ClientesNaoAtendidos"] else "Nenhum cliente não atendido."
+    )
 
 
 # ============================================================
