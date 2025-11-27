@@ -414,12 +414,14 @@ with aba2:
         left_on="Representante",
         right_index=True,
         how="left"
-    ).fillna({
-        "ClientesNovos": [],
-        "ClientesNaoAtendidos": [],
-        "QtdClientesNovos": 0,
-        "QtdClientesNaoAtendidos": 0
-    })
+      )
+
+    # ====== PATCH DEFINITIVO – substitui NaN em colunas de lista ======
+    rep["ClientesNovos"] = rep["ClientesNovos"].apply(lambda x: x if isinstance(x, list) else [])
+    rep["ClientesNaoAtendidos"] = rep["ClientesNaoAtendidos"].apply(lambda x: x if isinstance(x, list) else [])
+    rep["QtdClientesNovos"] = rep["QtdClientesNovos"].fillna(0).astype(int)
+    rep["QtdClientesNaoAtendidos"] = rep["QtdClientesNaoAtendidos"].fillna(0).astype(int)
+
 
     # ----------------------------------------
     # FORMATAÇÃO CORPORATIVA
