@@ -95,6 +95,25 @@ st.set_page_config(
     page_title="Brasforma – Dashboard Comercial",
     layout="wide",
 )
+# Ajuste global de layout (padding e títulos)
+st.markdown(
+    """
+    <style>
+        /* reduz o espaço em cima e embaixo do app */
+        .block-container {
+            padding-top: 1rem;
+            padding-bottom: 2rem;
+        }
+
+        /* evita título gigante estourando layout */
+        h1 {
+            font-size: 1.8rem !important;
+        }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
 
 # LOGO
 try:
@@ -252,22 +271,39 @@ if clientes:
 
 
 # ============================================================
-# KPIS EXECUTIVOS
+# KPIS EXECUTIVOS – LAYOUT AJUSTADO
 # ============================================================
 
-st.title("📊 Dashboard Comercial Integrado – Brasforma")
+st.markdown("## 📊 Dashboard Comercial Integrado – Brasforma")
+st.markdown("#### Visão Executiva")
 
 c1, c2, c3, c4 = st.columns(4)
-c1.metric("Faturamento Líquido", f"R$ {df_f['Faturamento Líquido'].sum():,.2f}")
-c2.metric("Faturamento Bruto", f"R$ {df_f['Valor Pedido R$'].sum():,.2f}")
-c3.metric("Impostos", f"R$ {df_f['Imposto Total'].sum():,.2f}")
-c4.metric("Pedidos", df_f["Pedido"].nunique())
+
+c1.metric(
+    "Faturamento Líquido",
+    fmt_money(df_f["Faturamento Líquido"].sum())
+)
+c2.metric(
+    "Faturamento Bruto",
+    fmt_money(df_f["Valor Pedido R$"].sum())
+)
+c3.metric(
+    "Impostos",
+    fmt_money(df_f["Imposto Total"].sum())
+)
+c4.metric(
+    "Pedidos",
+    fmt_int(df_f["Pedido"].nunique())
+)
+
+st.markdown("---")
 
 # ============================================================
-# GRÁFICOS TEMPORAIS
+# GRÁFICOS TEMPORAIS – TÍTULO AJUSTADO
 # ============================================================
 
-st.header("📈 Evolução Mensal")
+st.markdown("### 📈 Evolução Mensal")
+
 
 dfm = df_f.groupby("Ano-Mes", as_index=False).agg(
     FatLiq=("Faturamento Líquido", "sum"),
