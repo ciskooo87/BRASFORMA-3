@@ -21,8 +21,8 @@ st.set_page_config(
 # Logo na sidebar
 try:
     st.sidebar.image("logo_brasforma.png", use_container_width=True)
-except:
-    pass
+except FileNotFoundError:
+    st.sidebar.info("Envie o arquivo logo_brasforma.png para exibir o logotipo.")
 
 # ------------------------------------------------------------
 # FUNÇÕES UTILITÁRIAS
@@ -59,7 +59,21 @@ def fmt_pct(v):
 # ------------------------------------------------------------
 @st.cache_data(show_spinner=False)
 def load_base(path="Dashboard - Comite Semanal - Brasforma IA (1).xlsx"):
-    df = pd.read_excel(path, sheet_name="BD DASH")
+    """Carrega e padroniza a base principal.
+
+    O retorno é um DataFrame já com conversões numéricas, datas e campos
+    derivados para facilitar as demais análises.
+    """
+
+    file_path = Path(path)
+    if not file_path.exists():
+        st.error(
+            "Arquivo de base não encontrado. Envie o Excel na raiz do projeto ou "
+            "atualize o parâmetro 'path'."
+        )
+        return pd.DataFrame()
+
+    df = pd.read_excel(file_path, sheet_name="BD DASH")
     df.columns = [c.strip() for c in df.columns]
 
     # Conversões numéricas
@@ -130,6 +144,8 @@ def load_base(path="Dashboard - Comite Semanal - Brasforma IA (1).xlsx"):
 
 # Carregar base
 df = load_base()
+if df.empty:
+    st.stop()
 
 st.sidebar.title("Navegação")
 
@@ -277,6 +293,8 @@ def page_visao_executiva(df_f):
 
     st.header("📌 Visão Executiva – Painel Comercial Brasforma")
 
+    df_f = df_f.copy()
+
     if df_f.empty:
         st.warning("Não há dados para os filtros selecionados.")
         return
@@ -352,6 +370,8 @@ def page_visao_temporal(df_f):
 
     st.header("📈 Evolução Temporal – Faturamento, Impostos e Volume")
 
+    df_f = df_f.copy()
+
     if df_f.empty:
         st.warning("Não há dados para os filtros aplicados.")
         return
@@ -423,6 +443,8 @@ def page_visao_temporal(df_f):
 def page_clientes(df_f):
 
     st.header("👥 Análises de Clientes – Ranking & Indicadores")
+
+    df_f = df_f.copy()
 
     if df_f.empty:
         st.warning("Nenhum dado encontrado para os filtros aplicados.")
@@ -508,6 +530,8 @@ def page_clientes(df_f):
 def page_representantes(df_f):
 
     st.header("🧑‍💼 Performance dos Representantes – Faturamento, Margem e Impostos")
+
+    df_f = df_f.copy()
 
     if df_f.empty:
         st.warning("Nenhum dado encontrado para os filtros aplicados.")
@@ -600,6 +624,8 @@ def page_representantes(df_f):
 def page_geografia(df_f):
 
     st.header("🗺️ Análises Geográficas – UF e Regiões")
+
+    df_f = df_f.copy()
 
     if df_f.empty:
         st.warning("Nenhum dado encontrado para os filtros aplicados.")
@@ -712,6 +738,8 @@ def page_rfm_pareto(df_f):
 
     st.header("📈 RFM & Pareto – Análise de Valor dos Clientes")
 
+    df_f = df_f.copy()
+
     if df_f.empty:
         st.warning("Nenhum dado encontrado para os filtros aplicados.")
         return
@@ -793,7 +821,50 @@ def page_rfm_pareto(df_f):
 
     st.markdown("### 🎯 Interpretação rápida")
     st.write("""
-        • Clientes até ~20% da lista acumulam cerca de 80% do faturamento.  
-        • Esses clientes são “core” e precisam de estratégia diferenciada.  
-        • Clientes abaixo de 5% do acumulado raro contribuem; podem ser oportunidades ou drenagem operacional.  
+        • Clientes até ~20% da lista acumulam cerca de 80% do faturamento.
+        • Esses clientes são “core” e precisam de estratégia diferenciada.
+        • Clientes abaixo de 5% do acumulado raro contribuem; podem ser oportunidades ou drenagem operacional.
     """)
+
+
+def page_em_breve(titulo: str) -> None:
+    """Placeholder para páginas ainda não implementadas."""
+
+    st.header(titulo)
+    st.info(
+        "Esta seção ainda não possui visualizações disponíveis. "
+        "Envie uma nova versão da base ou descreva as necessidades para priorizarmos a implementação."
+    )
+
+
+def main() -> None:
+    """Roteia o menu lateral para a página correspondente."""
+
+    df_filtrado = df_f.copy()
+
+    pages = {
+        "Visão Executiva": page_visao_executiva,
+        "Visão Temporal": page_visao_temporal,
+        "Clientes – Ranking & Análises": page_clientes,
+        "Representantes – Performance": page_representantes,
+        "Produtos – Rentabilidade": page_em_breve,
+        "Geografia – UF / Região": page_geografia,
+        "Impostos": page_em_breve,
+        "Rentabilidade Bruto → Líquido": page_em_breve,
+        "ABC / Pareto": page_em_breve,
+        "RFM – Recência / Frequência / Monetário": page_rfm_pareto,
+        "Operacional – Lead Time / Atrasos": page_em_breve,
+        "Simulador Comercial": page_em_breve,
+        "Exportações": page_em_breve,
+    }
+
+    page_fn = pages.get(menu, page_em_breve)
+
+    if page_fn is page_em_breve:
+        page_fn(menu)
+    else:
+        page_fn(df_filtrado)
+
+
+if __name__ == "__main__":
+    main()
