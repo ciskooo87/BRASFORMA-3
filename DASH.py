@@ -234,9 +234,6 @@ with aba1:
 with aba2:
     st.subheader("📌 Performance Geral por Representante")
 
-    # =========================================================
-    # TABELA PRINCIPAL
-    # =========================================================
     rep = df_f.groupby("Representante", as_index=False).agg(
         FatLiq=("Faturamento Líquido", "sum"),
         FatBruto=("Valor Pedido R$", "sum"),
@@ -249,8 +246,8 @@ with aba2:
 
     rep["Ticket Médio"] = rep["FatLiq"] / rep["Pedidos"]
     rep["Margem Bruta (%)"] = np.where(
-        rep["FatBruto"] > 0,
-        100 * (rep["FatBruto"] - rep["CustoTotal"]) / rep["FatBruto"],
+        rep["FatBruto"] > 0, 
+        100 * (rep["FatBruto"] - rep["CustoTotal"]) / rep["FatBruto"], 
         np.nan
     )
     rep["Margem Líquida (%)"] = np.where(
@@ -260,55 +257,44 @@ with aba2:
     )
     rep["% Impostos"] = rep["Impostos"] / rep["FatBruto"] * 100
 
-    # FORMATAÇÃO CORPORATIVA
-    rep_fmt = format_dataframe(
+    st.dataframe(
         rep.sort_values("FatLiq", ascending=False),
-        money_cols=["FatLiq", "FatBruto", "Impostos", "CustoTotal", "Ticket Médio"],
-        pct_cols=["Margem Bruta (%)", "Margem Líquida (%)", "% Impostos"],
-        int_cols=["Pedidos", "ClientesAtivos", "QtdItens"]
+        use_container_width=True
     )
+    st.markdown("### 👥 Análise de Clientes (Novos x Não Atendidos)")
 
-    st.dataframe(rep_fmt, use_container_width=True)
+rep_select_clientes = st.selectbox(
+    "Selecione o representante para análise de clientes",
+    rep["Representante"].unique(),
+    key="rep_clientes"
+)
 
-    st.markdown("---")
+df_rep = df_f[df_f["Representante"] == rep_select_clientes]
 
-    # =========================================================
-    # CLIENTES NOVOS X NÃO ATENDIDOS
-    # =========================================================
-    st.subheader("👥 Análise de Clientes por Representante")
+# --- CLIENTES ATENDIDOS NO PERÍODO ---
+clientes_periodo = set(df_rep["Nome Cliente"].unique())
 
-    rep_select_clientes = st.selectbox(
-        "Selecione o representante",
-        rep["Representante"].unique()
-    )
+# --- CLIENTES HISTÓRICOS (ANTES DO FILTRO) ---
+df_hist = df[df["Representante"] == rep_select_clientes]
+clientes_historicos = set(df_hist["Nome Cliente"].unique())
 
-    # Dados filtrados por representante NO PERÍODO
-    df_rep_periodo = df_f[df_f["Representante"] == rep_select_clientes]
+# --- CLIENTES NOVOS ---
+clientes_novos = clientes_periodo - clientes_historicos
 
-    # Clientes atendidos no período filtrado
-    clientes_periodo = set(df_rep_periodo["Nome Cliente"].dropna().unique())
+# --- CLIENTES NÃO ATENDIDOS ---
+clientes_nao_atendidos = clientes_historicos - clientes_periodo
 
-    # Clientes históricos (antes do filtro)
-    df_rep_hist = df[df["Representante"] == rep_select_clientes]
-    clientes_historicos = set(df_rep_hist["Nome Cliente"].dropna().unique())
+colA, colB = st.columns(2)
 
-    # Clientes novos
-    clientes_novos = clientes_periodo - clientes_historicos
+with colA:
+    st.subheader("🆕 Clientes Novos no Período")
+    df_novos = pd.DataFrame(sorted(list(clientes_novos)), columns=["Cliente"])
+    st.dataframe(df_novos, use_container_width=True)
 
-    # Clientes não atendidos
-    clientes_nao = clientes_historicos - clientes_periodo
-
-    colA, colB = st.columns(2)
-
-    with colA:
-        st.markdown("### 🆕 Clientes Novos no Período")
-        df_novos = pd.DataFrame(sorted(list(clientes_novos)), columns=["Cliente"])
-        st.dataframe(df_novos, use_container_width=True)
-
-    with colB:
-        st.markdown("### 🚫 Clientes Não Atendidos (Risco de Perda)")
-        df_nao = pd.DataFrame(sorted(list(clientes_nao)), columns=["Cliente"])
-        st.dataframe(df_nao, use_container_width=True)
+with colB:
+    st.subheader("🚫 Clientes Não Atendidos no Período")
+    df_nao = pd.DataFrame(sorted(list(clientes_nao_atendidos)), columns=["Cliente"])
+    st.dataframe(df_nao, use_container_width=True)
 
 
     # ======================
