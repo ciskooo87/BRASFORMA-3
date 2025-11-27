@@ -528,19 +528,215 @@ aba1, aba2, aba3, aba4, aba5, aba6 = st.tabs([
 
 
 # ============================================================
-# CLIENTES
+# CLIENTES – VERSÃO FULL (FORECAST • CHURN • MATRIZ DE RISCO)
 # ============================================================
-with aba1:
-    st.subheader("Ranking de Clientes")
 
-    cli = df_f.groupby("Nome Cliente", as_index=False).agg(
-        FatLiq=("Faturamento Líquido","sum"),
-        Pedidos=("Pedido","nunique")
+with aba1:
+    st.subheader("📌 Clientes – Inteligência Comercial Avançada (FULL)")
+
+    # ==========================================
+    # PREPARAÇÃO DAS BASES
+    # ==========================================
+    base = df.copy()
+    periodo = df_f.copy()
+
+    # Proteção para datas
+    base["Data / Mês"] = pd.to_datetime(base["Data / Mês"], errors="coerce")
+    periodo["Data / Mês"] = pd.to_datetime(periodo["Data / Mês"], errors="coerce")
+
+    d_ini_ts = pd.to_datetime(d_ini) if d_ini is not None else base["Data / Mês"].min()
+    d_fim_ts = pd.to_datetime(d_fim) if d_fim is not None else base["Data / Mês"].max()
+
+    ult_12m_ini = d_fim_ts - pd.DateOffset(months=12)
+    ult_3m_ini  = d_fim_ts - pd.DateOffset(months=3)
+
+    base12 = base[(base["Data / Mês"] >= ult_12m_ini) & (base["Data / Mês"] <= d_fim_ts)]
+    base3 = base[(base["Data / Mês"] >= ult_3m_ini) & (base["Data / Mês"] <= d_fim_ts)]
+
+    # ==========================================
+    # KPIs AVANÇADOS
+    # ==========================================
+
+    clientes_ativos = periodo["Nome Cliente"].nunique()
+    clientes_12m = base12["Nome Cliente"].nunique()
+    clientes_3m = base3["Nome Cliente"].nunique()
+
+    # Novos no período
+    first_buy = base.groupby("Nome Cliente")["Data / Mês"].min()
+    clientes_novos = [c for c in periodo["Nome Cliente"].unique() if first_buy[c] >= d_ini_ts]
+
+    # Perdidos (12m -> período)
+    last_buy = base.groupby("Nome Cliente")["Data / Mês"].max()
+    clientes_prev = set(last_buy[(last_buy >= ult_12m_ini) & (last_buy < d_ini_ts)].index)
+    clientes_periodo = set(periodo["Nome Cliente"].unique())
+
+    clientes_perdidos_12m = sorted(list(clientes_prev - clientes_periodo))
+
+    churn_12m = (len(clientes_perdidos_12m) / clientes_12m * 100) if clientes_12m else 0
+    exp_12m = (len(clientes_novos) / clientes_12m * 100) if clientes_12m else 0
+
+    # Mix médio
+    mix = (periodo.groupby("Nome Cliente")["ITEM"].nunique()).mean()
+
+    # Frequência média
+    freq = (periodo.groupby("Nome Cliente")["Pedido"].nunique()).mean()
+
+    # Ticket médio
+    total_fat = periodo["Valor Pedido R$"].sum()
+    total_ped = periodo["Pedido"].nunique()
+    ticket_periodo = total_fat / total_ped if total_ped else 0
+
+    # Exibe KPIs
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Clientes Ativos (Período)", fmt_int(clientes_ativos))
+    c2.metric("Expansão da Carteira (12m)", fmt_pct(exp_12m))
+    c3.metric("Churn (12m)", fmt_pct(churn_12m))
+    c4.metric("Ticket Médio", fmt_money(ticket_periodo))
+
+    c5, c6, c7, c8 = st.columns(4)
+    c5.metric("Mix Médio de SKUs", f"{mix:.1f}")
+    c6.metric("Frequência Média", f"{freq:.1f}")
+    c7.metric("Base 12 meses", fmt_int(clientes_12m))
+    c8.metric("Base 3 meses", fmt_int(clientes_3m))
+
+    st.markdown("---")
+
+    # ==========================================
+    # CRESCIMENTO VS QUEDA (FORECAST)
+    # ==========================================
+
+    st.subheader("📈 Evolução da Carteira – Crescimento vs Queda")
+
+    fat_hist = base12.groupby("Nome Cliente")["Valor Pedido R$"].sum()
+    fat_per = periodo.groupby("Nome Cliente")["Valor Pedido R$"].sum()
+
+    df_evol = pd.DataFrame({
+        "Cliente": list(set(fat_hist.index)),
+        "Fat_12m": fat_hist,
+        "Fat_Periodo": fat_per
+    }).fillna(0)
+
+    df_evol["Delta"] = df_evol["Fat_Periodo"] - (df_evol["Fat_12m"] / 12)
+    df_evol["Crescimento (%)"] = np.where(
+        df_evol["Fat_12m"] > 0,
+        df_evol["Delta"] / (df_evol["Fat_12m"]/12) * 100,
+        np.nan
     )
 
-    cli_fmt = apply_global_formatting(cli.sort_values("FatLiq", ascending=False))
+    crec = df_evol[df_evol["Crescimento (%)"] > 10]
+    queda = df_evol[df_evol["Crescimento (%)"] < -10]
 
-    st.dataframe(cli_fmt, use_container_width=True)
+    c1, c2 = st.columns(2)
+    c1.metric("Clientes em Crescimento", fmt_int(len(crec)))
+    c2.metric("Clientes em Queda", fmt_int(len(queda)))
+
+    fig = px.scatter(
+        df_evol,
+        x="Fat_12m",
+        y="Crescimento (%)",
+        size="Fat_Periodo",
+        hover_name="Cliente",
+        title="Crescimento x Faturamento (Matriz BCG Comercial)"
+    )
+    st.plotly_chart(fig, use_container_width=True)
+
+    st.markdown("---")
+
+    # ==========================================
+    # MATRIZ DE RISCO (RECÊNCIA × QUEDA × CONCENTRAÇÃO)
+    # ==========================================
+
+    st.subheader("🧨 Matriz de Risco Comercial (Trimestral)")
+
+    df_risk = base3.groupby("Nome Cliente").agg({
+        "Valor Pedido R$": "sum",
+        "Data / Mês": "max"
+    }).rename(columns={"Valor Pedido R$": "Fat_3m", "Data / Mês": "UltimaCompra"}).reset_index()
+
+    df_risk["Recência (dias)"] = (d_fim_ts - df_risk["UltimaCompra"]).dt.days
+
+    fat_12 = fat_hist.reindex(df_risk["Nome Cliente"]).fillna(0)
+    df_risk["Fat_12m"] = fat_12.values
+    df_risk["Concentração (%)"] = df_risk["Fat_3m"] / df_risk["Fat_12m"].replace(0, np.nan) * 100
+
+    df_risk["Risco"] = df_risk.apply(
+        lambda x: "Crítico" if x["Recência (dias)"] > 90 and x["Concentração (%)"] > 50
+        else ("Atenção" if x["Recência (dias)"] > 60 else "Normal"),
+        axis=1
+    )
+
+    fig2 = px.scatter(
+        df_risk,
+        x="Recência (dias)",
+        y="Concentração (%)",
+        color="Risco",
+        hover_name="Nome Cliente",
+        title="Matriz de Risco Trimestral"
+    )
+    st.plotly_chart(fig2, use_container_width=True)
+
+    st.markdown("---")
+
+    # ==========================================
+    # HEATMAP DE COMPRA (CLIENTE x MÊS)
+    # ==========================================
+
+    st.subheader("🔥 Heatmap de Consumo por Mês (padrão de compra)")
+
+    heat = base12.copy()
+    heat["Ano-Mes"] = heat["Data / Mês"].dt.to_period("M").astype(str)
+
+    heat_map = (
+        heat.groupby(["Nome Cliente", "Ano-Mes"])["Valor Pedido R$"]
+        .sum()
+        .reset_index()
+    )
+
+    pivot_heat = heat_map.pivot(index="Nome Cliente", columns="Ano-Mes", values="Valor Pedido R$")
+    pivot_heat = pivot_heat.fillna(0)
+
+    st.dataframe(pivot_heat.style.background_gradient(cmap="Blues"), use_container_width=True)
+
+    st.markdown("---")
+
+    # ==========================================
+    # LISTA EXECUTIVA – AÇÃO IMEDIATA
+    # ==========================================
+
+    st.subheader("📋 Ações Comerciais Recomendadas (Top 50)")
+
+    df_action = df_risk.copy()
+    df_action["Ação Recomendada"] = df_action.apply(
+        lambda x: "Reativar (perda severa)" if x["Risco"] == "Crítico"
+        else ("Recuperar (queda)" if x["Risco"] == "Atenção"
+        else "Expandir Mix"),
+        axis=1
+    )
+
+    action_view = df_action.sort_values("Recência (dias)", ascending=False).head(50)
+
+    st.dataframe(action_view, use_container_width=True)
+
+    st.markdown("---")
+
+    # ==========================================
+    # RANKING FINAL
+    # ==========================================
+
+    st.subheader("🏆 Ranking de Clientes por Faturamento (Período)")
+
+    rank_cli = (
+        periodo.groupby("Nome Cliente")["Valor Pedido R$"]
+        .sum()
+        .sort_values(ascending=False)
+        .reset_index()
+    )
+
+    rank_cli["% do Total"] = rank_cli["Valor Pedido R$"] / rank_cli["Valor Pedido R$"].sum() * 100
+    rank_cli["% Acumulado"] = rank_cli["% do Total"].cumsum()
+
+    st.dataframe(rank_cli.head(200), use_container_width=True)
+
 
 # ============================================================
 # REPRESENTANTES
