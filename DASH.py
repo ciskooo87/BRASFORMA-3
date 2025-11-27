@@ -271,6 +271,24 @@ df_f = df_f[
     (df_f["Data / Mês"] >= pd.to_datetime(periodo[0])) &
     (df_f["Data / Mês"] <= pd.to_datetime(periodo[1]))
 ]
+# ============================================================
+# PRÉ-CÁLCULO GLOBAL PARA O DASH — SEM DEPENDER DAS ABAS
+# ============================================================
+
+# Resumo global por representante
+rep_global = df_f.groupby("Representante", as_index=False).agg(
+    QtdClientesNaoAtendidos=("Nome Cliente", lambda x: 0),  # placeholder
+    QtdClientesNovos=("Nome Cliente", lambda x: 0)
+)
+
+# Se existir o dataframe rep da aba Representantes, ele será substituído depois
+try:
+    rep_global = rep[["Representante", "QtdClientesNaoAtendidos", "QtdClientesNovos"]]
+except:
+    pass
+
+total_nao_global = rep_global["QtdClientesNaoAtendidos"].sum()
+total_novos_global = rep_global["QtdClientesNovos"].sum()
 
 # Representante
 reps = st.sidebar.multiselect(
@@ -405,10 +423,9 @@ if perc_top5 > 45:
 else:
     insights.append(f"Concentração saudável ({fmt_pct(perc_top5)}).")
 
-# Churn
-total_nao = rep["QtdClientesNaoAtendidos"].sum()
-if total_nao > 40:
-    insights.append(f"{fmt_int(total_nao)} clientes não atendidos. Risco de churn.")
+# Churn global
+if total_nao_global > 40:
+    insights.append(f"{fmt_int(total_nao_global)} clientes não atendidos. Risco de churn.")
 else:
     insights.append("Clientes não atendidos em nível controlado.")
 
@@ -416,6 +433,7 @@ for item in insights:
     st.warning("• " + item)
 
 st.markdown("---")
+
 
 
 st.markdown("### 📈 Evolução Mensal")
@@ -568,7 +586,7 @@ with aba2:
     # Ajuste final de listas
     rep["ClientesNovos"] = rep["ClientesNovos"].apply(lambda x: x if isinstance(x, list) else [])
     rep["ClientesNaoAtendidos"] = rep["ClientesNaoAtendidos"].apply(lambda x: x if isinstance(x, list) else [])
-    rep["QtdClientesNovos"] = rep["QtdClientesNovos"].fillna(0).astype(int)
+    total_novos_global = total_novos_global.fillna(0).astype(int)
     rep["QtdClientesNaoAtendidos"] = rep["QtdClientesNaoAtendidos"].fillna(0).astype(int)
 
     # ----------------------------------------
