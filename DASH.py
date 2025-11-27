@@ -586,12 +586,45 @@ with aba2:
     # Ajuste final de listas
     rep["ClientesNovos"] = rep["ClientesNovos"].apply(lambda x: x if isinstance(x, list) else [])
     rep["ClientesNaoAtendidos"] = rep["ClientesNaoAtendidos"].apply(lambda x: x if isinstance(x, list) else [])
-    total_novos_global = total_novos_global.fillna(0).astype(int)
+    # garante valor numérico simples
+try:
+    total_novos_global = int(total_novos_global)
+except:
+    total_novos_global = 0
+
     rep["QtdClientesNaoAtendidos"] = rep["QtdClientesNaoAtendidos"].fillna(0).astype(int)
 
     # ----------------------------------------
     # FORMATAÇÃO
     # ----------------------------------------
+
+    # ============================================================
+# PRÉ-CÁLCULO GLOBAL PARA O DASH — VALORES USADOS NA VISÃO EXECUTIVA
+# ============================================================
+
+# estrutura base — garante que sempre exista algo
+rep_global = df_f.groupby("Representante", as_index=False).agg(
+    QtdClientesNaoAtendidos=("Nome Cliente", lambda x: 0),
+    QtdClientesNovos=("Nome Cliente", lambda x: 0)
+)
+
+# se a aba de representantes já tiver calculado rep, usamos ela
+try:
+    rep_global = rep[["Representante", "QtdClientesNaoAtendidos", "QtdClientesNovos"]]
+except:
+    pass
+
+# somatórios globais
+try:
+    total_nao_global = int(rep_global["QtdClientesNaoAtendidos"].sum())
+except:
+    total_nao_global = 0
+
+try:
+    total_novos_global = int(rep_global["QtdClientesNovos"].sum())
+except:
+    total_novos_global = 0
+
     rep_fmt = format_dataframe(
         rep.sort_values("FatLiq", ascending=False),
         money_cols=["FatLiq", "FatBruto", "Impostos", "CustoTotal", "Ticket Médio"],
