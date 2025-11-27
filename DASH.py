@@ -95,6 +95,37 @@ st.set_page_config(
     page_title="Brasforma – Dashboard Comercial",
     layout="wide",
 )
+st.markdown("""
+<style>
+
+    /* reduz topo do app */
+    .block-container {
+        padding-top: 1.2rem;
+    }
+
+    /* cartões executivos */
+    .metric-card {
+        background-color: #111111;
+        padding: 18px 22px;
+        border-radius: 10px;
+        border: 1px solid #333333;
+    }
+
+    .metric-value {
+        font-size: 1.4rem;
+        font-weight: 600;
+        margin-bottom: -5px;
+    }
+
+    .metric-label {
+        font-size: 0.8rem;
+        font-weight: 300;
+        color: #cccccc;
+    }
+
+</style>
+""", unsafe_allow_html=True)
+
 # Ajuste global de layout (padding e títulos)
 st.markdown(
     """
@@ -271,32 +302,93 @@ if clientes:
 
 
 # ============================================================
-# KPIS EXECUTIVOS – LAYOUT AJUSTADO
+# VISÃO EXECUTIVA – REFINADA
 # ============================================================
 
-st.markdown("## 📊 Dashboard Comercial Integrado – Brasforma")
-st.markdown("#### Visão Executiva")
+st.markdown("## 📊 Visão Executiva – Panorama Geral")
 
-c1, c2, c3, c4 = st.columns(4)
+fat_liq = df_f["Faturamento Líquido"].sum()
+fat_bruto = df_f["Valor Pedido R$"].sum()
+impostos = df_f["Imposto Total"].sum()
+pedidos = df_f["Pedido"].nunique()
+clientes = df_f["Nome Cliente"].nunique()
+custo_total = df_f["Custo Total"].sum()
 
-c1.metric(
-    "Faturamento Líquido",
-    fmt_money(df_f["Faturamento Líquido"].sum())
-)
-c2.metric(
-    "Faturamento Bruto",
-    fmt_money(df_f["Valor Pedido R$"].sum())
-)
-c3.metric(
-    "Impostos",
-    fmt_money(df_f["Imposto Total"].sum())
-)
-c4.metric(
-    "Pedidos",
-    fmt_int(df_f["Pedido"].nunique())
-)
+margem_bruta = ((fat_bruto - custo_total) / fat_bruto * 100) if fat_bruto > 0 else 0
+ticket_medio = fat_liq / pedidos if pedidos > 0 else 0
+
+col1, col2, col3, col4 = st.columns(4)
+
+with col1:
+    st.markdown(f"""
+    <div class='metric-card'>
+        <div class='metric-label'>Faturamento Líquido</div>
+        <div class='metric-value'>{fmt_money(fat_liq)}</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+with col2:
+    st.markdown(f"""
+    <div class='metric-card'>
+        <div class='metric-label'>Faturamento Bruto</div>
+        <div class='metric-value'>{fmt_money(fat_bruto)}</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+with col3:
+    st.markdown(f"""
+    <div class='metric-card'>
+        <div class='metric-label'>Impostos Totais</div>
+        <div class='metric-value'>{fmt_money(impostos)}</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+with col4:
+    st.markdown(f"""
+    <div class='metric-card'>
+        <div class='metric-label'>Pedidos</div>
+        <div class='metric-value'>{fmt_int(pedidos)}</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+
+# ---- Segunda linha de KPIs ----
+col5, col6, col7, col8 = st.columns(4)
+
+with col5:
+    st.markdown(f"""
+    <div class='metric-card'>
+        <div class='metric-label'>Clientes Atendidos</div>
+        <div class='metric-value'>{fmt_int(clientes)}</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+with col6:
+    st.markdown(f"""
+    <div class='metric-card'>
+        <div class='metric-label'>Custo Total</div>
+        <div class='metric-value'>{fmt_money(custo_total)}</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+with col7:
+    st.markdown(f"""
+    <div class='metric-card'>
+        <div class='metric-label'>Margem Bruta (%)</div>
+        <div class='metric-value'>{fmt_pct(margem_bruta)}</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+with col8:
+    st.markdown(f"""
+    <div class='metric-card'>
+        <div class='metric-label'>Ticket Médio</div>
+        <div class='metric-value'>{fmt_money(ticket_medio)}</div>
+    </div>
+    """, unsafe_allow_html=True)
 
 st.markdown("---")
+
 
 # ============================================================
 # GRÁFICOS TEMPORAIS – TÍTULO AJUSTADO
