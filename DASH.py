@@ -76,6 +76,25 @@ def load_base(path="Dashboard - Comite Semanal - Brasforma IA (1).xlsx"):
     df = pd.read_excel(file_path, sheet_name="BD DASH")
     df.columns = [c.strip() for c in df.columns]
 
+    required_cols = [
+        "Valor Pedido R$",
+        "Custo",
+        "Quant. Pedidos",
+        "Data / Mês",
+        "Data do Pedido",
+        "Data da Entrega",
+        "Atrasado / No prazo",
+        "Pedido",
+    ]
+
+    missing = [c for c in required_cols if c not in df.columns]
+    if missing:
+        st.error(
+            "A base está faltando colunas obrigatórias: "
+            + ", ".join(missing)
+        )
+        return pd.DataFrame()
+
     # Conversões numéricas
     num_cols = [
         "Valor Pedido R$", "Custo", "Quant. Pedidos",
@@ -102,7 +121,12 @@ def load_base(path="Dashboard - Comite Semanal - Brasforma IA (1).xlsx"):
         "aproxtribFed","aproxtribState","cofinsDeson","pisDeson","icmsDeson",
         "icmsStFCP","icmsDifaRemet","icmsDifaDest","icmsDifaFCP"
     ]
-    df["Imposto Total"] = df[imposto_cols].sum(axis=1)
+
+    cols_presentes = [c for c in imposto_cols if c in df.columns]
+    if cols_presentes:
+        df["Imposto Total"] = df[cols_presentes].sum(axis=1)
+    else:
+        df["Imposto Total"] = 0
 
     # Faturamentos
     df["Faturamento Bruto"] = df["Valor Pedido R$"]
@@ -179,6 +203,10 @@ st.sidebar.subheader("Filtros Globais")
 # -------------------------------
 min_date = df["Data / Mês"].min()
 max_date = df["Data / Mês"].max()
+
+if pd.isna(min_date) or pd.isna(max_date):
+    st.error("Não foi possível identificar o intervalo de datas na base.")
+    st.stop()
 
 date_range = st.sidebar.date_input(
     "Período",
