@@ -17,7 +17,7 @@ st.set_page_config(
 
 # LOGO
 try:
-    st.sidebar.image("logo_brasforma.png", use_container_width=True)
+    st.sidebar.write("")
 except:
     pass
 
