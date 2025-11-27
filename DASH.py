@@ -508,15 +508,12 @@ with aba2:
     )
 
     # ----------------------------------------
-    # COMBINAR
+    # COMBINAR E AJUSTAR
     # ----------------------------------------
     clientes_merge = pd.concat([historico_por_rep, periodo_por_rep], axis=1)
 
-    # ----------------------------------------
-    # PROTEÇÃO CONTRA NaN E TIPOS INVÁLIDOS
-    # ----------------------------------------
     def safe_list(v):
-        if isinstance(v, (list, tuple, np.ndarray, set)):
+        if isinstance(v, (list, tuple, set, np.ndarray)):
             return list(v)
         if pd.isna(v):
             return []
@@ -529,20 +526,18 @@ with aba2:
     # CÁLCULO DE NOVOS E NÃO ATENDIDOS
     # ----------------------------------------
     clientes_merge["ClientesNovos"] = clientes_merge.apply(
-        lambda x: list(set(x.ClientesAtuais) - set(x.ClientesHistoricos)),
-        axis=1
+        lambda x: list(set(x.ClientesAtuais) - set(x.ClientesHistoricos)), axis=1
     )
 
     clientes_merge["ClientesNaoAtendidos"] = clientes_merge.apply(
-        lambda x: list(set(x.ClientesHistoricos) - set(x.ClientesAtuais)),
-        axis=1
+        lambda x: list(set(x.ClientesHistoricos) - set(x.ClientesAtuais)), axis=1
     )
 
     clientes_merge["QtdClientesNovos"] = clientes_merge["ClientesNovos"].apply(len)
     clientes_merge["QtdClientesNaoAtendidos"] = clientes_merge["ClientesNaoAtendidos"].apply(len)
 
     # ----------------------------------------
-    # PERFORMANCE NUMÉRICA PRINCIPAL
+    # PERFORMANCE PRINCIPAL
     # ----------------------------------------
     rep = df_rep_periodo.groupby("Representante", as_index=False).agg(
         FatLiq=("Faturamento Líquido", "sum"),
@@ -555,16 +550,14 @@ with aba2:
     )
 
     rep["Ticket Médio"] = rep["FatLiq"] / rep["Pedidos"]
-    rep["Margem Bruta (%)"] = np.where(
-        rep["FatBruto"] > 0,
+    rep["Margem Bruta (%)"] = np.where(rep["FatBruto"] > 0,
         100 * (rep["FatBruto"] - rep["CustoTotal"]) / rep["FatBruto"],
-        np.nan
-    )
-    rep["Margem Líquida (%)"] = np.where(
-        rep["FatLiq"] > 0,
+        np.nan)
+
+    rep["Margem Líquida (%)"] = np.where(rep["FatLiq"] > 0,
         100 * (rep["FatLiq"] - rep["CustoTotal"]) / rep["FatLiq"],
-        np.nan
-    )
+        np.nan)
+
     rep["% Impostos"] = rep["Impostos"] / rep["FatBruto"] * 100
 
     # ----------------------------------------
@@ -579,48 +572,17 @@ with aba2:
         how="left"
     )
 
-    # Ajuste final de listas
+    # ----------------------------------------
+    # AJUSTES FINAIS
+    # ----------------------------------------
     rep["ClientesNovos"] = rep["ClientesNovos"].apply(lambda x: x if isinstance(x, list) else [])
     rep["ClientesNaoAtendidos"] = rep["ClientesNaoAtendidos"].apply(lambda x: x if isinstance(x, list) else [])
-    # garante valor numérico simples
-try:
-    total_novos_global = int(total_novos_global)
-except:
-    total_novos_global = 0
-
+    rep["QtdClientesNovos"] = rep["QtdClientesNovos"].fillna(0).astype(int)
     rep["QtdClientesNaoAtendidos"] = rep["QtdClientesNaoAtendidos"].fillna(0).astype(int)
 
     # ----------------------------------------
-    # FORMATAÇÃO
+    # FORMATAÇÃO FINAL TABELA
     # ----------------------------------------
-
-    # ============================================================
-# PRÉ-CÁLCULO GLOBAL PARA O DASH — VALORES USADOS NA VISÃO EXECUTIVA
-# ============================================================
-
-# estrutura base — garante que sempre exista algo
-rep_global = df_f.groupby("Representante", as_index=False).agg(
-    QtdClientesNaoAtendidos=("Nome Cliente", lambda x: 0),
-    QtdClientesNovos=("Nome Cliente", lambda x: 0)
-)
-
-# se a aba de representantes já tiver calculado rep, usamos ela
-try:
-    rep_global = rep[["Representante", "QtdClientesNaoAtendidos", "QtdClientesNovos"]]
-except:
-    pass
-
-# somatórios globais
-try:
-    total_nao_global = int(rep_global["QtdClientesNaoAtendidos"].sum())
-except:
-    total_nao_global = 0
-
-try:
-    total_novos_global = int(rep_global["QtdClientesNovos"].sum())
-except:
-    total_novos_global = 0
-
     rep_fmt = format_dataframe(
         rep.sort_values("FatLiq", ascending=False),
         money_cols=["FatLiq", "FatBruto", "Impostos", "CustoTotal", "Ticket Médio"],
@@ -630,9 +592,9 @@ except:
 
     st.dataframe(rep_fmt, use_container_width=True)
 
-    # ============================================================
-    # DETALHAMENTO POR REPRESENTANTE – DENTRO DA ABA
-    # ============================================================
+    # ----------------------------------------
+    # DETALHAMENTO
+    # ----------------------------------------
     st.markdown("## 👥 Detalhamento por Representante")
 
     rep_select = st.selectbox("Selecione o Representante", rep["Representante"].unique())
@@ -641,35 +603,15 @@ except:
 
     col1, col2 = st.columns(2)
 
-    # ============================================================
-    # CLIENTES NOVOS
-    # ============================================================
     with col1:
-        st.write("### 🟢 Clientes Novos Atendidos no Período")
+        st.write("### 🟢 Clientes Novos no Período")
+        tabela_novos = pd.DataFrame({"Clientes Novos": det["ClientesNovos"]})
+        st.dataframe(tabela_novos, use_container_width=True)
 
-        clientes_novos_list = det["ClientesNovos"]
-
-        if len(clientes_novos_list) == 0:
-            st.info("Nenhum cliente novo atendido no período.")
-        else:
-            tabela_novos = pd.DataFrame({"Clientes Novos": clientes_novos_list})
-            tabela_novos_fmt = apply_global_formatting(tabela_novos)
-            st.dataframe(tabela_novos_fmt, use_container_width=True)
-
-    # ============================================================
-    # CLIENTES NÃO ATENDIDOS
-    # ============================================================
     with col2:
         st.write("### 🔴 Clientes Não Atendidos")
-
-        clientes_nao_list = det["ClientesNaoAtendidos"]
-
-        if len(clientes_nao_list) == 0:
-            st.success("Nenhum cliente perdido ou não atendido no período.")
-        else:
-            tabela_nao = pd.DataFrame({"Clientes Não Atendidos": clientes_nao_list})
-            tabela_nao_fmt = apply_global_formatting(tabela_nao)
-            st.dataframe(tabela_nao_fmt, use_container_width=True)
+        tabela_nao = pd.DataFrame({"Clientes Não Atendidos": det["ClientesNaoAtendidos"]})
+        st.dataframe(tabela_nao, use_container_width=True)
 
 
 
