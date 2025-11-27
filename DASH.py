@@ -118,9 +118,44 @@ def load_brasforma(path: str, sheet="BD DASH"):
 
 df = load_brasforma("Dashboard - Comite Semanal - Brasforma IA (1).xlsx")
 
+
 # ============================================================
-# SIDEBAR – FILTROS
+# INTELIGENCIA - ACC
 # ============================================================
+
+
+from inteligencia_comercial import (
+    clientes_em_crescimento,
+    clientes_em_queda,
+    skus_em_tendencia,
+    cesta_por_regiao,
+    detectar_anomalias
+)
+
+tab1, tab2, tab3, tab4, tab5 = st.tabs([
+    "Clientes Crescimento",
+    "Clientes em Risco",
+    "Tendência de SKUs",
+    "Cesta por Região",
+    "Anomalias"
+])
+
+with tab1:
+    st.dataframe(clientes_em_crescimento(df_f))
+
+with tab2:
+    st.dataframe(clientes_em_queda(df_f))
+
+with tab3:
+    st.dataframe(skus_em_tendencia(df_f))
+
+with tab4:
+    st.dataframe(cesta_por_regiao(df_f))
+
+with tab5:
+    st.dataframe(detectar_anomalias(df_f))
+
+
 
 st.sidebar.header("Filtros")
 
