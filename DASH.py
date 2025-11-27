@@ -272,51 +272,39 @@ df_f = df_f[
     (df_f["Data / Mês"] <= pd.to_datetime(periodo[1]))
 ]
 # ============================================================
-# PRÉ-CÁLCULO GLOBAL PARA O DASH — SEM DEPENDER DAS ABAS
+# PRÉ-CÁLCULO GLOBAL (seguro) – usado pela Visão Executiva
 # ============================================================
 
-# Resumo global por representante
-rep_global = df_f.groupby("Representante", as_index=False).agg(
-    QtdClientesNaoAtendidos=("Nome Cliente", lambda x: 0),  # placeholder
-    QtdClientesNovos=("Nome Cliente", lambda x: 0)
+# Construção básica: quantidade clientes do período anterior por representante
+df_historico_global = df[
+    df["Data / Mês"] < df_f["Data / Mês"].min()
+]
+
+hist_global = (
+    df_historico_global.groupby("Representante")["Nome Cliente"]
+    .nunique()
+    .rename("ClientesHistoricos")
 )
 
-# Se existir o dataframe rep da aba Representantes, ele será substituído depois
-try:
-    rep_global = rep[["Representante", "QtdClientesNaoAtendidos", "QtdClientesNovos"]]
-except:
-    pass
-
-total_nao_global = rep_global["QtdClientesNaoAtendidos"].sum()
-total_novos_global = rep_global["QtdClientesNovos"].sum()
-
-# Representante
-reps = st.sidebar.multiselect(
-    "Representante", sorted(df["Representante"].dropna().unique())
+periodo_global = (
+    df_f.groupby("Representante")["Nome Cliente"]
+    .nunique()
+    .rename("ClientesAtuais")
 )
-if reps:
-    df_f = df_f[df_f["Representante"].isin(reps)]
 
-# UF
-ufs = st.sidebar.multiselect(
-    "UF", sorted(df["UF"].dropna().unique())
-)
-if ufs:
-    df_f = df_f[df_f["UF"].isin(ufs)]
+rep_global = pd.concat([hist_global, periodo_global], axis=1).fillna(0)
 
-# Transação
-trans = st.sidebar.multiselect(
-    "TRANSAÇÃO", sorted(df["TRANSAÇÃO"].dropna().unique())
-)
-if trans:
-    df_f = df_f[df_f["TRANSAÇÃO"].isin(trans)]
+rep_global["QtdClientesNovos"] = (
+    rep_global["ClientesAtuais"] - rep_global["ClientesHistoricos"]
+).clip(lower=0)
 
-# Cliente
-clientes = st.sidebar.multiselect(
-    "Cliente", sorted(df["Nome Cliente"].dropna().unique())
-)
-if clientes:
-    df_f = df_f[df_f["Nome Cliente"].isin(clientes)]
+rep_global["QtdClientesNaoAtendidos"] = (
+    rep_global["ClientesHistoricos"] - rep_global["ClientesAtuais"]
+).clip(lower=0)
+
+# Somatórios globais usados pela Visão Executiva
+total_novos_global = int(rep_global["QtdClientesNovos"].sum())
+total_nao_global = int(rep_global["QtdClientesNaoAtendidos"].sum())
 
 
 # ============================================================
