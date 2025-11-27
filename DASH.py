@@ -295,14 +295,25 @@ aba1, aba2, aba3, aba4, aba5 = st.tabs([
     "Atrasos e Lead Time"
 ])
 
+# ============================================================
+# CLIENTES
+# ============================================================
 with aba1:
     st.subheader("Ranking de Clientes")
+
     cli = df_f.groupby("Nome Cliente", as_index=False).agg(
         FatLiq=("Faturamento Líquido","sum"),
         Pedidos=("Pedido","nunique")
     )
-    st.dataframe(cli.sort_values("FatLiq", ascending=False))
 
+    cli_fmt = apply_global_formatting(cli.sort_values("FatLiq", ascending=False))
+
+    st.dataframe(cli_fmt, use_container_width=True)
+
+
+# ============================================================
+# REPRESENTANTES
+# ============================================================
 with aba2:
     st.subheader("📌 Performance Geral por Representante")
 
@@ -329,9 +340,6 @@ with aba2:
     )
     rep["% Impostos"] = rep["Impostos"] / rep["FatBruto"] * 100
 
-    # =====================
-    # FORMATAÇÃO FINAL
-    # =====================
     rep_fmt = format_dataframe(
         rep.sort_values("FatLiq", ascending=False),
         money_cols=["FatLiq", "FatBruto", "Impostos", "CustoTotal", "Ticket Médio"],
@@ -339,40 +347,61 @@ with aba2:
         int_cols=["Pedidos", "ClientesAtivos", "QtdItens"]
     )
 
-    st.dataframe(
-        rep_fmt,
-        use_container_width=True
-    )
+    st.dataframe(rep_fmt, use_container_width=True)
 
 
-
-
-
+# ============================================================
+# UF / GEOGRAFIA
+# ============================================================
 with aba3:
     st.subheader("Faturamento por UF")
+
     geo = df_f.groupby("UF", as_index=False).agg(
         FatLiq=("Faturamento Líquido","sum"),
         Pedidos=("Pedido","nunique")
     )
-    st.dataframe(geo.sort_values("FatLiq", ascending=False))
 
+    geo_fmt = apply_global_formatting(geo.sort_values("FatLiq", ascending=False))
+
+    st.dataframe(geo_fmt, use_container_width=True)
+
+
+# ============================================================
+# PRODUTOS / RENTABILIDADE
+# ============================================================
 with aba4:
     st.subheader("Rentabilidade por ITEM")
+
     sku = df_f.groupby("ITEM", as_index=False).agg(
         FatLiq=("Faturamento Líquido","sum"),
         Custo=("Custo Total","sum"),
         Lucro=("Lucro Bruto","sum"),
         Qtd=("Quant. Pedidos","sum"),
     )
-    st.dataframe(sku.sort_values("FatLiq", ascending=False))
 
+    sku_fmt = apply_global_formatting(sku.sort_values("FatLiq", ascending=False))
+
+    st.dataframe(sku_fmt, use_container_width=True)
+
+
+# ============================================================
+# ATRASOS / LEAD TIME
+# ============================================================
 with aba5:
     st.subheader("Análise de Atrasos")
+
     atrasos = df_f.groupby("AtrasadoFlag", as_index=False).agg(
         Pedidos=("Pedido","nunique")
     )
-    st.dataframe(atrasos)
 
+    atrasos_fmt = apply_global_formatting(atrasos)
+
+    st.dataframe(atrasos_fmt, use_container_width=True)
+
+
+# ============================================================
+# INTELIGÊNCIA COMERCIAL
+# ============================================================
 st.header("🧠 Inteligência Comercial")
 
 tab1, tab2, tab3, tab4, tab5 = st.tabs([
@@ -385,24 +414,23 @@ tab1, tab2, tab3, tab4, tab5 = st.tabs([
 
 with tab1:
     st.subheader("Clientes em Crescimento (Emergentes)")
-    st.dataframe(clientes_em_crescimento(df_f))
+    st.dataframe(apply_global_formatting(clientes_em_crescimento(df_f)))
 
 with tab2:
     st.subheader("Clientes em Queda (Risco)")
-    st.dataframe(clientes_em_queda(df_f))
+    st.dataframe(apply_global_formatting(clientes_em_queda(df_f)))
 
 with tab3:
     st.subheader("Tendência de SKUs")
-    st.dataframe(skus_em_tendencia(df_f))
+    st.dataframe(apply_global_formatting(skus_em_tendencia(df_f)))
 
 with tab4:
     st.subheader("Cesta Comercial por Região (Top 5)")
-    st.dataframe(cesta_por_regiao(df_f))
+    st.dataframe(apply_global_formatting(cesta_por_regiao(df_f)))
 
 with tab5:
     st.subheader("Anomalias Comerciais")
-    st.dataframe(detectar_anomalias(df_f))
-
+    st.dataframe(apply_global_formatting(detectar_anomalias(df_f)))
 
 
 # ============================================================
