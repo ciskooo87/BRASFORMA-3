@@ -440,21 +440,45 @@ with aba2:
     # ----------------------------------------
     st.subheader("👥 Detalhamento por Representante")
 
-    rep_select = st.selectbox("Selecione o Representante", rep["Representante"].unique())
+    st.subheader("👥 Detalhamento por Representante")
 
-    detalhe = rep[rep["Representante"] == rep_select].iloc[0]
+rep_select = st.selectbox("Selecione o Representante", rep["Representante"].unique())
 
-    col1, col2 = st.columns(2)
+det = rep[rep["Representante"] == rep_select].iloc[0]
 
-    col1.write("### 🟢 Clientes Novos")
-    col1.write(
-        detalhe["ClientesNovos"] if detalhe["ClientesNovos"] else "Nenhum cliente novo encontrado."
-    )
+col1, col2 = st.columns(2)
 
-    col2.write("### 🔴 Clientes Não Atendidos")
-    col2.write(
-        detalhe["ClientesNaoAtendidos"] if detalhe["ClientesNaoAtendidos"] else "Nenhum cliente não atendido."
-    )
+# ============================================================
+# 1) TABELA DE CLIENTES NOVOS
+# ============================================================
+
+st.write("### 🟢 Clientes Novos Atendidos no Período")
+
+clientes_novos_list = det["ClientesNovos"]
+
+if len(clientes_novos_list) == 0:
+    st.info("Nenhum cliente novo atendido no período.")
+else:
+    tabela_novos = pd.DataFrame({"Clientes Novos": clientes_novos_list})
+    tabela_novos_fmt = apply_global_formatting(tabela_novos)
+    st.dataframe(tabela_novos_fmt, use_container_width=True)
+
+
+# ============================================================
+# 2) TABELA DE CLIENTES NÃO ATENDIDOS
+# ============================================================
+
+st.write("### 🔴 Clientes Não Atendidos")
+
+clientes_nao_list = det["ClientesNaoAtendidos"]
+
+if len(clientes_nao_list) == 0:
+    st.success("Nenhum cliente perdido ou não atendido no período.")
+else:
+    tabela_nao = pd.DataFrame({"Clientes Não Atendidos": clientes_nao_list})
+    tabela_nao_fmt = apply_global_formatting(tabela_nao)
+    st.dataframe(tabela_nao_fmt, use_container_width=True)
+
 
 
 # ============================================================
