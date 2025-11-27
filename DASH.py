@@ -250,12 +250,12 @@ def load_brasforma(path: str, sheet="BD DASH"):
 df = load_brasforma("Dashboard - Comite Semanal - Brasforma IA (1).xlsx")
 
 # ============================================================
-# SIDEBAR – FILTROS
+# SIDEBAR – FILTROS (VERSÃO COMPLETA)
 # ============================================================
 
 st.sidebar.header("Filtros")
 
-# Período
+# ---- Período ----
 min_d = df["Data / Mês"].min()
 max_d = df["Data / Mês"].max()
 
@@ -266,10 +266,68 @@ periodo = st.sidebar.date_input(
     max_value=max_d,
 )
 
-df_f = df.copy()
-df_f = df_f[
-    (df_f["Data / Mês"] >= pd.to_datetime(periodo[0])) &
-    (df_f["Data / Mês"] <= pd.to_datetime(periodo[1]))
+df_f = df[
+    (df["Data / Mês"] >= pd.to_datetime(periodo[0])) &
+    (df["Data / Mês"] <= pd.to_datetime(periodo[1]))
+].copy()
+
+# ---- Filtro de Transação (COLUNA C) ----
+if "Transação" in df.columns:
+    transacoes = sorted(df["Transação"].dropna().unique())
+else:
+    # proteção caso a coluna tenha outro nome
+    possiveis = df.columns[2]
+    df.rename(columns={possiveis: "Transação"}, inplace=True)
+    transacoes = sorted(df["Transação"].dropna().unique())
+
+trans_sel = st.sidebar.multiselect("Transação", transacoes)
+if trans_sel:
+    df_f = df_f[df_f["Transação"].isin(trans_sel)]
+
+# ---- Regional ----
+if "Regional" in df.columns:
+    regionais = sorted(df["Regional"].dropna().unique())
+    reg_sel = st.sidebar.multiselect("Regional", regionais)
+    if reg_sel:
+        df_f = df_f[df_f["Regional"].isin(reg_sel)]
+
+# ---- Representante ----
+if "Representante" in df.columns:
+    reps = sorted(df["Representante"].dropna().unique())
+    rep_sel = st.sidebar.multiselect("Representante", reps)
+    if rep_sel:
+        df_f = df_f[df_f["Representante"].isin(rep_sel)]
+
+# ---- UF ----
+if "UF" in df.columns:
+    ufs = sorted(df["UF"].dropna().unique())
+    uf_sel = st.sidebar.multiselect("UF", ufs)
+    if uf_sel:
+        df_f = df_f[df_f["UF"].isin(uf_sel)]
+
+# ---- Status de Produção / Faturamento ----
+if "Status de Produção / Faturamento" in df.columns:
+    status = sorted(df["Status de Produção / Faturamento"].dropna().unique())
+    status_sel = st.sidebar.multiselect("Status Prod./Fat.", status)
+    if status_sel:
+        df_f = df_f[df_f["Status de Produção / Faturamento"].isin(status_sel)]
+
+# ---- Cliente (texto) ----
+if "Nome Cliente" in df.columns:
+    cliente_txt = st.sidebar.text_input("Cliente (contém)")
+    if cliente_txt.strip():
+        df_f = df_f[
+            df_f["Nome Cliente"].astype(str).str.contains(cliente_txt, case=False, na=False)
+        ]
+
+# ---- SKU / Item ----
+if "ITEM" in df.columns:
+    item_txt = st.sidebar.text_input("SKU/Item (contém)")
+    if item_txt.strip():
+        df_f = df_f[
+            df_f["ITEM"].astype(str).str.contains(item_txt, case=False, na=False)
+        ]
+
 ]
 # ============================================================
 # PRÉ-CÁLCULO GLOBAL (seguro) – usado pela Visão Executiva
