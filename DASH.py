@@ -292,7 +292,7 @@ with aba2:
     )
     rep["% Impostos"] = rep["Impostos"] / rep["FatBruto"] * 100
 
-     rep_fmt = format_dataframe(
+         rep_fmt = format_dataframe(
         rep.sort_values("FatLiq", ascending=False),
         money_cols=["FatLiq", "FatBruto", "Impostos", "CustoTotal", "Ticket Médio"],
         pct_cols=["Margem Bruta (%)", "Margem Líquida (%)", "% Impostos"],
@@ -303,6 +303,7 @@ with aba2:
         rep_fmt,
         use_container_width=True
     )
+
 
 
 
