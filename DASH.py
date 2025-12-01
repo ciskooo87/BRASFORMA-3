@@ -1113,8 +1113,8 @@ with aba4:
 
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("SKUs Ativos", fmt_int(total_prod))
-    col2.metric("Faturamento Líquido", fmt_money(total_fat))
-    col3.metric("Lucro Bruto", fmt_money(total_lucro))
+    col2.metric("Faturamento Bruto", fmt_money(total_fat))
+    col3.metric("Lucro Líquido", fmt_money(total_lucro))
     col4.metric("Margem Média (%)", fmt_pct(margem_media))
 
     st.markdown("---")
