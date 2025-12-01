@@ -1232,6 +1232,36 @@ with aba4:
     st.markdown("---")
 
     # ============================================================
+    # 4.1) LISTAGEM DE SKUs POR CATEGORIA – PREMIUM
+    # ============================================================
+    st.subheader("🧾 SKUs por Categoria – Detalhamento")
+
+    categorias_disponiveis = sorted(sku["Categoria IA"].unique())
+
+    categoria_sel = st.selectbox(
+        "Selecione a categoria para visualizar os SKUs:",
+        categorias_disponiveis
+    )
+
+    sku_cat = sku[sku["Categoria IA"] == categoria_sel].sort_values(
+        "FatLiq", ascending=False
+    )
+
+    st.write(f"**Total de SKUs na categoria '{categoria_sel}': {len(sku_cat)}**")
+
+    sku_cat_fmt = format_dataframe(
+        sku_cat[[
+            "ITEM", "FatLiq", "Margem (%)", "Margem Líquida (%)",
+            "Pedidos", "Unidades", "Impostos", "Categoria IA"
+        ]],
+        money_cols=["FatLiq", "Impostos"],
+        pct_cols=["Margem (%)", "Margem Líquida (%)"],
+        int_cols=["Pedidos", "Unidades"]
+    )
+
+    st.dataframe(sku_cat_fmt, use_container_width=True)
+
+    # ============================================================
     # 5) ANÁLISE INDIVIDUAL DO PRODUTO
     # ============================================================
     st.subheader("🔍 Análise Individual do SKU")
