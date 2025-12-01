@@ -955,40 +955,51 @@ with aba3:
 
     st.markdown("---")
 
-    # ============================================================
-    # MAPA INTERATIVO DO BRASIL – SEM GEOJSON EXTERNO
-    # ============================================================
-    st.subheader("🗺️ Mapa de Faturamento por UF")
+# ============================================================
+# MAPA INTERATIVO DO BRASIL – CHOROPLETH COM GEOJSON LOCAL
+# ============================================================
 
-    uf_iso = {
-        "AC":"BR-AC","AL":"BR-AL","AP":"BR-AP","AM":"BR-AM","BA":"BR-BA","CE":"BR-CE",
-        "DF":"BR-DF","ES":"BR-ES","GO":"BR-GO","MA":"BR-MA","MT":"BR-MT","MS":"BR-MS",
-        "MG":"BR-MG","PA":"BR-PA","PB":"BR-PB","PR":"BR-PR","PE":"BR-PE","PI":"BR-PI",
-        "RJ":"BR-RJ","RN":"BR-RN","RO":"BR-RO","RR":"BR-RR","RS":"BR-RS","SC":"BR-SC",
-        "SE":"BR-SE","SP":"BR-SP","TO":"BR-TO"
-    }
+import json
 
-    geo["UF_Code"] = geo["UF"].map(uf_iso)
+st.subheader("🗺️ Mapa de Faturamento por UF – Choropleth Premium")
 
-    fig_map = px.choropleth(
-        geo,
-        locations="UF_Code",
-        color="FatLiq",
-        color_continuous_scale="Viridis",
-        locationmode="ISO-3166-2",
-        hover_name="UF",
-        hover_data={
-            "FatLiq": ":,.2f",
-            "Margem (%)": ":.1f",
-            "Clientes": True,
-            "Pedidos": True
-        },
-        title="Faturamento por UF – Mapa Interativo"
-    )
-    fig_map.update_geos(fitbounds="locations", visible=False)
-    st.plotly_chart(fig_map, use_container_width=True)
+# Carrega o geojson local
+with open("brasil_estados.geojson", "r", encoding="utf-8") as f:
+    geojson = json.load(f)
 
-    st.markdown("---")
+# Associações UF → Nome do estado no GeoJSON
+uf_to_state = {
+    "AC":"Acre","AL":"Alagoas","AP":"Amapá","AM":"Amazonas",
+    "BA":"Bahia","CE":"Ceará","DF":"Distrito Federal","ES":"Espírito Santo",
+    "GO":"Goiás","MA":"Maranhão","MT":"Mato Grosso","MS":"Mato Grosso do Sul",
+    "MG":"Minas Gerais","PA":"Pará","PB":"Paraíba","PR":"Paraná",
+    "PE":"Pernambuco","PI":"Piauí","RJ":"Rio de Janeiro","RN":"Rio Grande do Norte",
+    "RO":"Rondônia","RS":"Rio Grande do Sul","RR":"Roraima","SC":"Santa Catarina",
+    "SE":"Sergipe","SP":"São Paulo","TO":"Tocantins"
+}
+
+geo["Estado"] = geo["UF"].map(uf_to_state)
+
+fig_map = px.choropleth(
+    geo,
+    geojson=geojson,
+    locations="Estado",
+    featureidkey="properties.name",
+    color="FatLiq",
+    color_continuous_scale="Viridis",
+    hover_name="Estado",
+    hover_data={
+        "FatLiq": ":,.2f",
+        "Margem (%)": ":.1f",
+        "Clientes": True,
+        "Pedidos": True
+    },
+    title="Faturamento por UF – Mapa Interativo Premium"
+)
+
+fig_map.update_geos(fitbounds="locations", visible=False)
+st.plotly_chart(fig_map, use_container_width=True)
+
 
     # ============================================================
     # CURVA ABC DE UFs
