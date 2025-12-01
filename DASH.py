@@ -916,13 +916,13 @@ with aba2:
             st.dataframe(tabela_nao, use_container_width=True)
 
 # ============================================================
-# UF / GEOGRAFIA – VERSÃO PREMIUM FINAL COM INDENTAÇÃO CORRETA
+# UF / GEOGRAFIA – VERSÃO PREMIUM FINAL (INDENTAÇÃO CORRETA)
 # ============================================================
 with aba3:
     st.subheader("🌎 Inteligência Geográfica – Visão Premium por UF")
 
     # ============================================================
-    # KPI TERRITORIAIS ESTRATÉGICOS
+    # KPIs TERRITORIAIS
     # ============================================================
     geo = df_f.groupby("UF", as_index=False).agg(
         FatLiq=("Faturamento Líquido","sum"),
@@ -955,59 +955,56 @@ with aba3:
 
     st.markdown("---")
 
-# ============================================================
-# MAPA INTERATIVO DO BRASIL – CHOROPLETH COM GEOJSON LOCAL
-# ============================================================
+    # ============================================================
+    # MAPA CHOROPLETH
+    # ============================================================
+    import json
 
-import json
+    st.subheader("🗺️ Mapa de Faturamento por UF – Choropleth Premium")
 
-st.subheader("🗺️ Mapa de Faturamento por UF – Choropleth Premium")
+    with open("brasil_estados.geojson", "r", encoding="utf-8") as f:
+        geojson = json.load(f)
 
-# Carrega o geojson local
-with open("brasil_estados.geojson", "r", encoding="utf-8") as f:
-    geojson = json.load(f)
+    uf_to_state = {
+        "AC":"Acre","AL":"Alagoas","AP":"Amapá","AM":"Amazonas",
+        "BA":"Bahia","CE":"Ceará","DF":"Distrito Federal","ES":"Espírito Santo",
+        "GO":"Goiás","MA":"Maranhão","MT":"Mato Grosso","MS":"Mato Grosso do Sul",
+        "MG":"Minas Gerais","PA":"Pará","PB":"Paraíba","PR":"Paraná",
+        "PE":"Pernambuco","PI":"Piauí","RJ":"Rio de Janeiro","RN":"Rio Grande do Norte",
+        "RO":"Rondônia","RS":"Rio Grande do Sul","RR":"Roraima","SC":"Santa Catarina",
+        "SE":"Sergipe","SP":"São Paulo","TO":"Tocantins"
+    }
 
-# Associações UF → Nome do estado no GeoJSON
-uf_to_state = {
-    "AC":"Acre","AL":"Alagoas","AP":"Amapá","AM":"Amazonas",
-    "BA":"Bahia","CE":"Ceará","DF":"Distrito Federal","ES":"Espírito Santo",
-    "GO":"Goiás","MA":"Maranhão","MT":"Mato Grosso","MS":"Mato Grosso do Sul",
-    "MG":"Minas Gerais","PA":"Pará","PB":"Paraíba","PR":"Paraná",
-    "PE":"Pernambuco","PI":"Piauí","RJ":"Rio de Janeiro","RN":"Rio Grande do Norte",
-    "RO":"Rondônia","RS":"Rio Grande do Sul","RR":"Roraima","SC":"Santa Catarina",
-    "SE":"Sergipe","SP":"São Paulo","TO":"Tocantins"
-}
+    geo["Estado"] = geo["UF"].map(uf_to_state)
 
-geo["Estado"] = geo["UF"].map(uf_to_state)
+    fig_map = px.choropleth(
+        geo,
+        geojson=geojson,
+        locations="Estado",
+        featureidkey="properties.name",
+        color="FatLiq",
+        hover_name="Estado",
+        hover_data={
+            "FatLiq": ":,.2f",
+            "Margem (%)": ":.1f",
+            "Clientes": True,
+            "Pedidos": True
+        },
+        color_continuous_scale="Viridis",
+        title="Faturamento por UF – Mapa Interativo Premium"
+    )
+    fig_map.update_geos(fitbounds="locations", visible=False)
+    st.plotly_chart(fig_map, use_container_width=True)
 
-fig_map = px.choropleth(
-    geo,
-    geojson=geojson,
-    locations="Estado",
-    featureidkey="properties.name",
-    color="FatLiq",
-    color_continuous_scale="Viridis",
-    hover_name="Estado",
-    hover_data={
-        "FatLiq": ":,.2f",
-        "Margem (%)": ":.1f",
-        "Clientes": True,
-        "Pedidos": True
-    },
-    title="Faturamento por UF – Mapa Interativo Premium"
-)
-
-fig_map.update_geos(fitbounds="locations", visible=False)
-st.plotly_chart(fig_map, use_container_width=True)
-
+    st.markdown("---")
 
     # ============================================================
-    # CURVA ABC DE UFs
+    # CURVA ABC
     # ============================================================
     st.subheader("📈 Curva ABC de UFs – Concentração Geográfica")
 
     top_ufs = st.slider(
-        "Quantidade de UFs no gráfico (Top N):",
+        "Quantidade de UFs no gráfico:",
         min_value=3,
         max_value=len(geo),
         value=10,
@@ -1023,7 +1020,7 @@ st.plotly_chart(fig_map, use_container_width=True)
         x="UF",
         y="% Acum",
         markers=True,
-        title=f"Curva ABC – {top_ufs} UFs com Maior Faturamento"
+        title=f"Curva ABC – Top {top_ufs} UFs"
     )
 
     fig_abc_uf.update_layout(yaxis_title="% Acumulado", xaxis_title=None)
@@ -1032,7 +1029,7 @@ st.plotly_chart(fig_map, use_container_width=True)
     st.markdown("---")
 
     # ============================================================
-    # DETALHAMENTO POR UF
+    # DETALHAMENTO DA UF
     # ============================================================
     st.subheader("🔍 Análise Individual por UF")
 
@@ -1042,7 +1039,7 @@ st.plotly_chart(fig_map, use_container_width=True)
     colUF1, colUF2, colUF3, colUF4 = st.columns(4)
     colUF1.metric("Faturamento Líquido", fmt_money(df_u["Faturamento Líquido"].sum()))
     colUF2.metric("Pedidos", fmt_int(df_u["Pedido"].nunique()))
-    colUF3.metric("Clientes Atendidos", fmt_int(df_u["Nome Cliente"].nunique()))
+    colUF3.metric("Clientes", fmt_int(df_u["Nome Cliente"].nunique()))
 
     margem_uf = (
         df_u["Lucro Bruto"].sum() / df_u["Valor Pedido R$"].sum() * 100
@@ -1055,7 +1052,7 @@ st.plotly_chart(fig_map, use_container_width=True)
     # ============================================================
     st.markdown("### 🚨 Alertas Automáticos da UF")
 
-    alertas_uf = []
+    alertas = []
 
     fat_u_atual = df_u["Faturamento Líquido"].sum()
     fat_u_prev = df[
@@ -1066,30 +1063,30 @@ st.plotly_chart(fig_map, use_container_width=True)
     if fat_u_prev > 0:
         var_uf = (fat_u_atual - fat_u_prev) / fat_u_prev * 100
         if var_uf < -25:
-            alertas_uf.append(f"📉 Queda relevante de faturamento (**{fmt_pct(var_uf)}**) frente ao período anterior.")
+            alertas.append(f"📉 Queda de faturamento (**{fmt_pct(var_uf)}**) frente ao período anterior.")
         elif var_uf > 35:
-            alertas_uf.append(f"📈 Forte expansão (**{fmt_pct(var_uf)}**) frente ao período anterior.")
+            alertas.append(f"📈 Forte crescimento (**{fmt_pct(var_uf)}**) frente ao período anterior.")
 
     if margem_uf < 12:
-        alertas_uf.append("🔥 Margem baixa na região. Avaliar mix e desconto aplicado.")
+        alertas.append("🔥 Margem baixa. Necessário revisar mix e política comercial.")
 
     clientes_periodo_u = set(df_u["Nome Cliente"].unique())
     clientes_hist_u = set(
         df[(df["UF"] == uf_sel) & (df["Data / Mês"] < data_ini)]["Nome Cliente"].unique()
     )
-    perdidos_u = clientes_hist_u - clientes_periodo_u
+    perdidos = clientes_hist_u - clientes_periodo_u
 
-    if len(perdidos_u) > 10:
-        alertas_uf.append("⚠ Churn elevado de clientes nesta UF.")
+    if len(perdidos) > 10:
+        alertas.append("⚠ Churn elevado na UF. Atenção à recuperação.")
 
-    perc_uf = fat_u_atual / geo["FatLiq"].sum() * 100 if geo["FatLiq"].sum() > 0 else 0
-    if perc_uf > 20:
-        alertas_uf.append(f"🔴 UF representa **{fmt_pct(perc_uf)}** do faturamento total. Alto risco de dependência.")
+    perc_regiao = fat_u_atual / geo["FatLiq"].sum() * 100 if geo["FatLiq"].sum() else 0
+    if perc_regiao > 20:
+        alertas.append(f"🔴 Concentração elevada: UF representa **{fmt_pct(perc_regiao)}** da receita total.")
 
-    if len(alertas_uf) == 0:
-        st.success("Nenhum alerta crítico identificado nesta UF.")
+    if len(alertas) == 0:
+        st.success("Nenhum alerta crítico nesta UF.")
     else:
-        for a in alertas_uf:
+        for a in alertas:
             st.warning(a)
 
     st.markdown("---")
@@ -1099,43 +1096,43 @@ st.plotly_chart(fig_map, use_container_width=True)
     # ============================================================
     st.subheader("🏅 Top Clientes da UF")
 
-    top_cli_uf = (
+    top_cli = (
         df_u.groupby("Nome Cliente", as_index=False)
         .agg(FatLiq=("Faturamento Líquido","sum"))
         .sort_values("FatLiq", ascending=False)
         .head(15)
     )
 
-    st.dataframe(apply_global_formatting(top_cli_uf), use_container_width=True)
+    st.dataframe(apply_global_formatting(top_cli), use_container_width=True)
 
     # ============================================================
-    # MIX DE PRODUTOS DA UF
+    # MIX DE PRODUTOS
     # ============================================================
     st.subheader("🧺 Mix de Produtos da UF")
 
-    mix_u = (
+    mix_uf = (
         df_u.groupby("ITEM", as_index=False)["Faturamento Líquido"]
         .sum()
         .sort_values("Faturamento Líquido", ascending=False)
         .head(20)
     )
 
-    st.dataframe(apply_global_formatting(mix_u), use_container_width=True)
+    st.dataframe(apply_global_formatting(mix_uf), use_container_width=True)
 
     # ============================================================
     # TENDÊNCIA DA UF
     # ============================================================
-    df_u_mes = df_u.groupby("Ano-Mes", as_index=False)["Faturamento Líquido"].sum()
+    df_mes = df_u.groupby("Ano-Mes", as_index=False)["Faturamento Líquido"].sum()
 
-    fig_u_trend = px.line(
-        df_u_mes,
+    fig_trend = px.line(
+        df_mes,
         x="Ano-Mes",
         y="Faturamento Líquido",
         markers=True,
-        title=f"Evolução Mensal – {uf_sel}"
+        title=f"Evolução Mensal da UF – {uf_sel}"
     )
 
-    st.plotly_chart(fig_u_trend, use_container_width=True)
+    st.plotly_chart(fig_trend, use_container_width=True)
 
 
 
