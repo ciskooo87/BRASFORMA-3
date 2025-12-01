@@ -247,7 +247,61 @@ def load_brasforma(path: str, sheet="BD DASH"):
 # CARREGAR BASE
 # ============================================================
 
-df = load_brasforma("Dashboard - Comite Semanal - Brasforma IA (1).xlsx")
+# ---------------- Fonte de dados (upgrade) ----------------
+st.sidebar.title("Fonte de dados")
+
+st.sidebar.markdown("#### Como deseja carregar a base?")
+modo_base = st.sidebar.radio(
+    "Fonte da base",
+    ["Arquivo padrão", "Escolher arquivo interno", "Upload manual (.xlsx)"],
+    index=0,
+)
+
+# Arquivos internos disponíveis
+bases_internas = {
+    "Base oficial": "Dashboard - Comite Semanal - Brasforma IA (1).xlsx",
+    "Base alternativa": "Dashboard - Comite Semanal - Brasforma (1).xlsx",
+    "Metas": "Metas_Brasforma.xlsx",
+}
+
+# Lógica de seleção da fonte
+data_path = None
+
+if modo_base == "Arquivo padrão":
+    # Carrega a base oficial automaticamente
+    if Path(bases_internas["Base oficial"]).exists():
+        data_path = bases_internas["Base oficial"]
+    elif Path(bases_internas["Base alternativa"]).exists():
+        data_path = bases_internas["Base alternativa"]
+    else:
+        st.error("Nenhum arquivo padrão encontrado.")
+        st.stop()
+
+elif modo_base == "Escolher arquivo interno":
+    escolha = st.sidebar.selectbox(
+        "Selecione um arquivo interno",
+        list(bases_internas.keys()),
+        index=0,
+    )
+    data_path = bases_internas[escolha]
+    if not Path(data_path).exists():
+        st.error(f"O arquivo interno '{data_path}' não foi encontrado no ambiente.")
+        st.stop()
+
+elif modo_base == "Upload manual (.xlsx)":
+    uploaded = st.sidebar.file_uploader("Envie sua base (.xlsx)", type=["xlsx"])
+    if uploaded is not None:
+        data_path = uploaded
+    else:
+        st.info("Envie um arquivo para continuar.")
+        st.stop()
+
+# Exibe o arquivo em uso
+st.sidebar.caption(f"📄 **Arquivo em uso:** {data_path}")
+
+# Carrega os dados
+df, qty_col = load_data(data_path)
+goals_df = load_goals()
 
 # ============================================================
 # SIDEBAR – FILTROS (VERSÃO CORRIGIDA E 100% VÁLIDA)
