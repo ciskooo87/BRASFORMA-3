@@ -555,7 +555,7 @@ aba1, aba2, aba3, aba4, aba5, aba6 = st.tabs([
 
 
 # ============================================================
-# CLIENTES – NOVA VERSÃO CORPORATIVA
+# CLIENTES – NOVA VERSÃO CORPORATIVA COMPLETA
 # ============================================================
 with aba1:
     st.subheader("📌 Inteligência de Clientes – Carteira, Tendências e Risco")
@@ -566,7 +566,7 @@ with aba1:
     clientes_ativos = df_f["Nome Cliente"].nunique()
     clientes_periodo = set(df_f["Nome Cliente"].unique())
 
-    # Datas para cálculo de novos e perdidos
+    # Datas para calcular novos e perdidos
     data_ini = df_f["Data / Mês"].min()
     janela_previa_ini = data_ini - pd.DateOffset(months=12)
 
@@ -583,57 +583,12 @@ with aba1:
     ticket_medio_cliente = df_f.groupby("Nome Cliente")["Faturamento Líquido"].sum().mean()
 
     colA, colB, colC, colD = st.columns(4)
-    colE, colF = st.columns(2)
-
     colA.metric("Clientes Ativos", fmt_int(clientes_ativos))
     colB.metric("Clientes Novos", fmt_int(len(clientes_novos)))
     colC.metric("Clientes Perdidos", fmt_int(len(clientes_perdidos)))
     colD.metric("Ticket Médio por Cliente", fmt_money(ticket_medio_cliente))
 
-
-
-    # ============================================================
-# ALERTAS AUTOMÁTICOS DO CLIENTE
-# ============================================================
-st.markdown("### 🚨 Alertas Automáticos do Cliente")
-
-alertas = []
-
-# 1. Cliente com queda forte de compras vs período anterior
-fat_atual = df_c["Faturamento Líquido"].sum()
-fat_prev = df[
-    (df["Nome Cliente"] == cliente_sel) &
-    (df["Data / Mês"] < data_ini)
-]["Faturamento Líquido"].sum()
-
-if fat_prev > 0:
-    var_cli = (fat_atual - fat_prev) / fat_prev * 100
-    if var_cli < -30:
-        alertas.append(f"📉 Queda acentuada de faturamento (**{fmt_pct(var_cli)}**) frente ao período anterior.")
-    elif var_cli > 40:
-        alertas.append(f"📈 Crescimento expressivo de faturamento (**{fmt_pct(var_cli)}**). Cliente em expansão.")
-
-# 2. Margem crítica
-margem_cli = df_c["Lucro Bruto"].sum() / df_c["Valor Pedido R$"].sum() * 100 if df_c["Valor Pedido R$"].sum() > 0 else 0
-if margem_cli < 10:
-    alertas.append("🔥 Margem muito baixa. Avaliar desconto, mix e carga tributária.")
-
-# 3. Cliente com poucas compras (risco de churn)
-freq = df_c["Pedido"].nunique()
-if freq == 1 and fat_atual < ticket_medio_cliente * 0.5:
-    alertas.append("⚠ Cliente com baixa frequência. Risco de churn elevado.")
-
-# 4. Concentração excessiva (dependência do cliente)
-perc_cli = fat_atual / fat_liq * 100 if fat_liq > 0 else 0
-if perc_cli > 15:
-    alertas.append(f"🔴 Cliente responde por **{fmt_pct(perc_cli)}** do faturamento do período. Atenção à dependência.")
-
-if len(alertas) == 0:
-    st.success("Nenhum alerta identificado para este cliente.")
-else:
-    for a in alertas:
-        st.warning(a)
-
+    st.markdown("---")
 
     # ============================================================
     # RANKING COMPLETO DE CLIENTES
@@ -663,36 +618,36 @@ else:
 
     st.markdown("---")
 
-   # ============================================================
-# CURVA ABC DOS CLIENTES – agora com seletor de quantidade
-# ============================================================
-st.subheader("📈 Curva ABC de Clientes – Concentração de Receita")
+    # ============================================================
+    # CURVA ABC DOS CLIENTES – com seletor Top N
+    # ============================================================
+    st.subheader("📈 Curva ABC de Clientes – Concentração de Receita")
 
-top_n = st.slider(
-    "Quantidade de clientes no gráfico (Top N):",
-    min_value=5,
-    max_value=len(cli),
-    value=30,
-    step=5
-)
+    top_n = st.slider(
+        "Quantidade de clientes no gráfico (Top N):",
+        min_value=5,
+        max_value=len(cli),
+        value=30,
+        step=5
+    )
 
-abc = cli.sort_values("FatLiq", ascending=False).copy()
-abc["% do Total"] = abc["FatLiq"] / abc["FatLiq"].sum() * 100
-abc["% Acum"] = abc["% do Total"].cumsum()
+    abc = cli.sort_values("FatLiq", ascending=False).copy()
+    abc["% do Total"] = abc["FatLiq"] / abc["FatLiq"].sum() * 100
+    abc["% Acum"] = abc["% do Total"].cumsum()
+    abc_plot = abc.head(top_n)
 
-abc_plot = abc.head(top_n)
+    fig_abc = px.line(
+        abc_plot,
+        x="Nome Cliente",
+        y="% Acum",
+        title=f"Curva ABC – % Acumulado (Top {top_n} Clientes)",
+        markers=True
+    )
+    fig_abc.update_layout(xaxis_title=None, yaxis_title="% Acumulado")
 
-fig_abc = px.line(
-    abc_plot,
-    x="Nome Cliente",
-    y="% Acum",
-    title=f"Curva ABC – % Acumulado (Top {top_n} Clientes)",
-    markers=True
-)
-fig_abc.update_layout(xaxis_title=None, yaxis_title="% Acumulado")
+    st.plotly_chart(fig_abc, use_container_width=True)
 
-st.plotly_chart(fig_abc, use_container_width=True)
-
+    st.markdown("---")
 
     # ============================================================
     # SELECIONAR CLIENTE PARA DETALHAMENTO
@@ -706,7 +661,7 @@ st.plotly_chart(fig_abc, use_container_width=True)
 
     df_c = df_f[df_f["Nome Cliente"] == cliente_sel]
 
-    # PERFIL DO CLIENTE
+    # KPIs individuais
     col1, col2, col3 = st.columns(3)
     col1.metric("Faturamento Líquido", fmt_money(df_c["Faturamento Líquido"].sum()))
     col2.metric("Ticket Médio", fmt_money(df_c["Faturamento Líquido"].sum() / df_c["Pedido"].nunique()))
@@ -715,7 +670,71 @@ st.plotly_chart(fig_abc, use_container_width=True)
         if df_c["Valor Pedido R$"].sum() > 0 else 0
     ))
 
-    # Tendência de compra
+    # ============================================================
+    # ALERTAS AUTOMÁTICOS DO CLIENTE
+    # ============================================================
+    st.markdown("### 🚨 Alertas Automáticos do Cliente")
+
+    alertas = []
+
+    # Faturamento atual vs histórico
+    fat_atual = df_c["Faturamento Líquido"].sum()
+    fat_prev = df[
+        (df["Nome Cliente"] == cliente_sel) &
+        (df["Data / Mês"] < data_ini)
+    ]["Faturamento Líquido"].sum()
+
+    if fat_prev > 0:
+        var_cli = (fat_atual - fat_prev) / fat_prev * 100
+        if var_cli < -30:
+            alertas.append(f"📉 Queda acentuada de faturamento (**{fmt_pct(var_cli)}**) frente ao período anterior.")
+        elif var_cli > 40:
+            alertas.append(f"📈 Crescimento expressivo de faturamento (**{fmt_pct(var_cli)}**). Cliente em expansão.")
+
+    # Margem crítica
+    margem_cli = df_c["Lucro Bruto"].sum() / df_c["Valor Pedido R$"].sum() * 100 if df_c["Valor Pedido R$"].sum() > 0 else 0
+    if margem_cli < 10:
+        alertas.append("🔥 Margem muito baixa. Avaliar desconto, mix e carga tributária.")
+
+    # Cliente com risco de churn
+    freq = df_c["Pedido"].nunique()
+    if freq == 1 and fat_atual < ticket_medio_cliente * 0.5:
+        alertas.append("⚠ Cliente com baixa frequência. Risco de churn elevado.")
+
+    # Concentração
+    perc_cli = fat_atual / fat_liq * 100 if fat_liq > 0 else 0
+    if perc_cli > 15:
+        alertas.append(f"🔴 Cliente representa **{fmt_pct(perc_cli)}** do faturamento total. Atenção à dependência.")
+
+    if len(alertas) == 0:
+        st.success("Nenhum alerta identificado para este cliente.")
+    else:
+        for a in alertas:
+            st.warning(a)
+
+    st.markdown("---")
+
+    # ============================================================
+    # CARDS EXECUTIVOS – Perfil 360°
+    # ============================================================
+    st.subheader("🧩 Cards Executivos do Cliente")
+
+    colc1, colc2, colc3 = st.columns(3)
+
+    with colc1:
+        st.info(f"**Representantes que atendem:**\n{', '.join(df_c['Representante'].dropna().unique())}")
+
+    with colc2:
+        st.info(f"**UFs atendidas:**\n{', '.join(df_c['UF'].dropna().unique())}")
+
+    with colc3:
+        st.info(f"**Itens Diferentes Comprados:**\n{df_c['ITEM'].nunique()} SKUs")
+
+    st.markdown("---")
+
+    # ============================================================
+    # TENDÊNCIA MENSAL DO CLIENTE
+    # ============================================================
     df_cli_mes = df_c.groupby("Ano-Mes", as_index=False)["Faturamento Líquido"].sum()
     fig_trend = px.bar(
         df_cli_mes,
@@ -725,14 +744,18 @@ st.plotly_chart(fig_abc, use_container_width=True)
     )
     st.plotly_chart(fig_trend, use_container_width=True)
 
-    # Produtos comprados
+    # ============================================================
+    # MIX DE PRODUTOS DO CLIENTe
+    # ============================================================
     st.markdown("### 🧺 Mix de Produtos Comprados")
+
     mix_cli = df_c.groupby("ITEM", as_index=False)["Faturamento Líquido"].sum().sort_values("Faturamento Líquido", ascending=False)
 
     st.dataframe(
         apply_global_formatting(mix_cli),
         use_container_width=True
     )
+
 
 
 # ============================================================
