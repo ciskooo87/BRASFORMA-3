@@ -555,19 +555,129 @@ aba1, aba2, aba3, aba4, aba5, aba6 = st.tabs([
 
 
 # ============================================================
-# CLIENTES
+# CLIENTES – NOVA VERSÃO CORPORATIVA
 # ============================================================
 with aba1:
-    st.subheader("Ranking de Clientes")
+    st.subheader("📌 Inteligência de Clientes – Carteira, Tendências e Risco")
+
+    # ============================
+    # KPI PRINCIPAIS
+    # ============================
+    clientes_ativos = df_f["Nome Cliente"].nunique()
+    clientes_periodo = set(df_f["Nome Cliente"].unique())
+
+    # Datas para cálculo de novos e perdidos
+    data_ini = df_f["Data / Mês"].min()
+    janela_previa_ini = data_ini - pd.DateOffset(months=12)
+
+    df_hist_12m = df[
+        (df["Data / Mês"] >= janela_previa_ini) &
+        (df["Data / Mês"] < data_ini)
+    ]
+
+    clientes_prev = set(df_hist_12m["Nome Cliente"].unique())
+
+    clientes_novos = sorted(clientes_periodo - clientes_prev)
+    clientes_perdidos = sorted(clientes_prev - clientes_periodo)
+
+    ticket_medio_cliente = df_f.groupby("Nome Cliente")["Faturamento Líquido"].sum().mean()
+
+    colA, colB, colC, colD = st.columns(4)
+    colE, colF = st.columns(2)
+
+    colA.metric("Clientes Ativos", fmt_int(clientes_ativos))
+    colB.metric("Clientes Novos", fmt_int(len(clientes_novos)))
+    colC.metric("Clientes Perdidos", fmt_int(len(clientes_perdidos)))
+    colD.metric("Ticket Médio por Cliente", fmt_money(ticket_medio_cliente))
+
+    # ============================================================
+    # RANKING COMPLETO DE CLIENTES
+    # ============================================================
+    st.markdown("### 📊 Ranking Completo de Clientes (Faturamento, Ticket, Margem)")
 
     cli = df_f.groupby("Nome Cliente", as_index=False).agg(
         FatLiq=("Faturamento Líquido","sum"),
-        Pedidos=("Pedido","nunique")
+        FatBruto=("Valor Pedido R$","sum"),
+        Impostos=("Imposto Total","sum"),
+        Lucro=("Lucro Bruto","sum"),
+        Pedidos=("Pedido","nunique"),
+        Qtd=("Quant. Pedidos","sum")
     )
 
-    cli_fmt = apply_global_formatting(cli.sort_values("FatLiq", ascending=False))
+    cli["Ticket Médio"] = cli["FatLiq"] / cli["Pedidos"]
+    cli["Margem (%)"] = np.where(cli["FatBruto"] > 0, 100 * cli["Lucro"] / cli["FatBruto"], np.nan)
+
+    cli_fmt = format_dataframe(
+        cli.sort_values("FatLiq", ascending=False),
+        money_cols=["FatLiq","FatBruto","Lucro","Impostos","Ticket Médio"],
+        pct_cols=["Margem (%)"],
+        int_cols=["Pedidos","Qtd"]
+    )
 
     st.dataframe(cli_fmt, use_container_width=True)
+
+    st.markdown("---")
+
+    # ============================================================
+    # CURVA ABC DOS CLIENTES
+    # ============================================================
+    st.subheader("📈 Curva ABC de Clientes – Concentração de Receita")
+
+    abc = cli.sort_values("FatLiq", ascending=False).copy()
+    abc["% do Total"] = abc["FatLiq"] / abc["FatLiq"].sum() * 100
+    abc["% Acum"] = abc["% do Total"].cumsum()
+
+    fig_abc = px.line(
+        abc,
+        x="Nome Cliente",
+        y="% Acum",
+        title="Curva ABC – % Acumulado por Cliente",
+        markers=True
+    )
+    st.plotly_chart(fig_abc, use_container_width=True)
+
+    st.markdown("---")
+
+    # ============================================================
+    # SELECIONAR CLIENTE PARA DETALHAMENTO
+    # ============================================================
+    st.subheader("🔍 Análise Individual do Cliente")
+
+    cliente_sel = st.selectbox(
+        "Selecione um cliente para análise:",
+        sorted(cli["Nome Cliente"])
+    )
+
+    df_c = df_f[df_f["Nome Cliente"] == cliente_sel]
+
+    # PERFIL DO CLIENTE
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Faturamento Líquido", fmt_money(df_c["Faturamento Líquido"].sum()))
+    col2.metric("Ticket Médio", fmt_money(df_c["Faturamento Líquido"].sum() / df_c["Pedido"].nunique()))
+    col3.metric("Margem (%)", fmt_pct(
+        100 * df_c["Lucro Bruto"].sum() / df_c["Valor Pedido R$"].sum()
+        if df_c["Valor Pedido R$"].sum() > 0 else 0
+    ))
+
+    # Tendência de compra
+    df_cli_mes = df_c.groupby("Ano-Mes", as_index=False)["Faturamento Líquido"].sum()
+    fig_trend = px.bar(
+        df_cli_mes,
+        x="Ano-Mes",
+        y="Faturamento Líquido",
+        title=f"Evolução Mensal – {cliente_sel}"
+    )
+    st.plotly_chart(fig_trend, use_container_width=True)
+
+    # Produtos comprados
+    st.markdown("### 🧺 Mix de Produtos Comprados")
+    mix_cli = df_c.groupby("ITEM", as_index=False)["Faturamento Líquido"].sum().sort_values("Faturamento Líquido", ascending=False)
+
+    st.dataframe(
+        apply_global_formatting(mix_cli),
+        use_container_width=True
+    )
+
 
 # ============================================================
 # REPRESENTANTES
