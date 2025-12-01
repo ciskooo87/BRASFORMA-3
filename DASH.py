@@ -544,13 +544,14 @@ st.plotly_chart(fig2, use_container_width=True)
 
 st.header("🔍 Análises Detalhadas")
 
-aba1, aba2, aba3, aba4, aba5, aba6 = st.tabs([
+aba1, aba2, aba3, aba4, aba5, aba6, aba = st.tabs([
     "Clientes",
     "Representantes",
     "UF / Geografia",
     "Produtos / Rentabilidade",
     "Atrasos e Lead Time",
     "RFM"
+    "Benchmark Interno"
 ])
 
 
@@ -1529,6 +1530,128 @@ with aba5:
     df_det_fmt = apply_global_formatting(df_f[detalhamento_cols])
 
     st.dataframe(df_det_fmt, use_container_width=True)
+
+
+
+
+# ============================================================
+# BENCHMARK INTERNO – REPRESENTANTES / UF / SKUs
+# ============================================================
+with aba6:
+    st.subheader("🏆 Benchmark Interno – Performance Competitiva")
+
+    st.markdown("Compare desempenho de Representantes, UFs e SKUs com análise de ranking, percentis e gap para o líder.")
+
+    # ============================================================
+    # FUNÇÃO AUXILIAR DE RANKING
+    # ============================================================
+    def gerar_benchmark(df, grupo, metrica):
+        tabela = df.groupby(grupo, as_index=False).agg(
+            FatLiq=("Faturamento Líquido", "sum"),
+            Pedidos=("Pedido", "nunique"),
+            Clientes=("Nome Cliente", "nunique")
+        )
+
+        tabela["Rank_Fat"] = tabela["FatLiq"].rank(ascending=False, method="min")
+        tabela["% Part"] = tabela["FatLiq"] / tabela["FatLiq"].sum() * 100
+
+        # Percentil
+        tabela["Percentil"] = tabela["FatLiq"].rank(pct=True) * 100
+
+        # Gap to leader
+        leader = tabela["FatLiq"].max()
+        tabela["Gap p/ Top"] = leader - tabela["FatLiq"]
+
+        return tabela.sort_values("Rank_Fat")
+
+    # ============================================================
+    # 1) BENCHMARK DE REPRESENTANTES
+    # ============================================================
+    st.subheader("🧑‍💼 Benchmark de Representantes")
+
+    bench_rep = gerar_benchmark(df_f, "Representante", "FatLiq")
+
+    st.dataframe(
+        format_dataframe(
+            bench_rep,
+            money_cols=["FatLiq"],
+            int_cols=["Pedidos","Clientes","Rank_Fat"],
+            pct_cols=["% Part","Percentil"]
+        ),
+        use_container_width=True
+    )
+
+    fig_rep_rank = px.bar(
+        bench_rep.sort_values("Rank_Fat"),
+        x="Representante", y="FatLiq",
+        color="Percentil",
+        title="Ranking Competitivo de Representantes",
+        color_continuous_scale="Viridis",
+        text_auto=".2s"
+    )
+    st.plotly_chart(fig_rep_rank, use_container_width=True)
+
+    st.markdown("---")
+
+    # ============================================================
+    # 2) BENCHMARK DE UFs
+    # ============================================================
+    st.subheader("🌎 Benchmark de UFs")
+
+    bench_uf = gerar_benchmark(df_f, "UF", "FatLiq")
+
+    st.dataframe(
+        format_dataframe(
+            bench_uf,
+            money_cols=["FatLiq"],
+            int_cols=["Pedidos","Clientes","Rank_Fat"],
+            pct_cols=["% Part","Percentil"]
+        ),
+        use_container_width=True
+    )
+
+    fig_uf_rank = px.bar(
+        bench_uf.sort_values("Rank_Fat"),
+        x="UF", y="FatLiq",
+        color="Percentil",
+        title="Ranking Competitivo de UFs",
+        color_continuous_scale="Plasma",
+        text_auto=".2s"
+    )
+    st.plotly_chart(fig_uf_rank, use_container_width=True)
+
+    st.markdown("---")
+
+    # ============================================================
+    # 3) BENCHMARK DE SKUs
+    # ============================================================
+    st.subheader("📦 Benchmark de SKUs")
+
+    bench_sku = gerar_benchmark(df_f, "ITEM", "FatLiq").head(50)
+
+    st.caption("Mostrando Top 50 SKUs para evitar poluição visual.")
+
+    st.dataframe(
+        format_dataframe(
+            bench_sku,
+            money_cols=["FatLiq"],
+            int_cols=["Pedidos","Clientes","Rank_Fat"],
+            pct_cols=["% Part","Percentil"]
+        ),
+        use_container_width=True
+    )
+
+    fig_sku_rank = px.bar(
+        bench_sku.sort_values("Rank_Fat"),
+        x="ITEM", y="FatLiq",
+        color="Percentil",
+        title="Ranking Competitivo de SKUs (Top 50)",
+        color_continuous_scale="Turbo",
+        text_auto=".2s"
+    )
+    fig_sku_rank.update_layout(showlegend=False)
+    st.plotly_chart(fig_sku_rank, use_container_width=True)
+
 
 
 # ============================================================
