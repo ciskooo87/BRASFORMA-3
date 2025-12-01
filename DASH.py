@@ -1373,15 +1373,162 @@ with aba4:
 # ATRASOS / LEAD TIME
 # ============================================================
 with aba5:
-    st.subheader("Análise de Atrasos")
 
+    st.subheader("⏱️ Inteligência de Atrasos e Lead Time")
+
+    # ============================================================
+    # 1. PREPARAÇÃO DAS MÉTRICAS
+    # ============================================================
+
+    # Garantir colunas de datas tratadas
+    df_f["Data Pedido"] = pd.to_datetime(df_f["Data do Pedido"], errors="coerce")
+    df_f["Data Entrega"] = pd.to_datetime(df_f["Data da Entrega"], errors="coerce")
+
+    # Lead Time real
+    df_f["LeadTimeDias"] = (df_f["Data Entrega"] - df_f["Data Pedido"]).dt.days
+
+    # KPI: quantidade de pedidos atrasados / no prazo
     atrasos = df_f.groupby("AtrasadoFlag", as_index=False).agg(
-        Pedidos=("Pedido","nunique")
+        Pedidos=("Pedido","nunique"),
+        Fat=("Faturamento Líquido","sum")
     )
 
-    atrasos_fmt = apply_global_formatting(atrasos)
+    total_ped = atrasos["Pedidos"].sum()
+    qtd_atrasado = atrasos.loc[atrasos["AtrasadoFlag"]=="Atrasado", "Pedidos"].sum()
+    perc_atraso = qtd_atrasado / total_ped * 100 if total_ped > 0 else 0
 
-    st.dataframe(atrasos_fmt, use_container_width=True)
+    atraso_medio = df_f.loc[df_f["AtrasadoFlag"]=="Atrasado", "LeadTimeDias"].mean()
+    leadtime_medio = df_f["LeadTimeDias"].mean()
+
+    impacto_financeiro = atrasos.loc[
+        atrasos["AtrasadoFlag"]=="Atrasado",
+        "Fat"
+    ].sum()
+
+    # ============================================================
+    # 2. KPIs EXECUTIVOS
+    # ============================================================
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("📦 Pedidos no Período", fmt_int(total_ped))
+    col2.metric("⛔ % Atrasados", fmt_pct(perc_atraso))
+    col3.metric("⏳ Lead Time Médio (dias)", fmt_int(leadtime_medio))
+    col4.metric("💰 Impacto Financeiro dos Atrasos", fmt_money(impacto_financeiro))
+
+    st.markdown("---")
+
+    # ============================================================
+    # 3. TENDÊNCIA DE ATRASOS
+    # ============================================================
+    st.subheader("📉 Tendência de Atrasos por Mês")
+
+    df_f["AnoMes"] = df_f["Data Pedido"].dt.to_period("M").astype(str)
+
+    atraso_mes = df_f.groupby("AnoMes", as_index=False).agg(
+        Atrasados=("AtrasadoFlag", lambda x: (x=="Atrasado").sum()),
+        Total=("Pedido","nunique")
+    )
+    atraso_mes["% Atraso"] = atraso_mes["Atrasados"] / atraso_mes["Total"] * 100
+
+    fig_tend = px.line(
+        atraso_mes,
+        x="AnoMes", y="% Atraso",
+        markers=True,
+        title="Tendência Mensal de Atraso (%)"
+    )
+    st.plotly_chart(fig_tend, use_container_width=True)
+
+    st.markdown("---")
+
+    # ============================================================
+    # 4. ATRASO POR REGIÃO / UF
+    # ============================================================
+    st.subheader("🌎 Atraso por UF")
+
+    atraso_uf = df_f.groupby("UF", as_index=False).agg(
+        Atrasados=("AtrasadoFlag", lambda x: (x=="Atrasado").sum()),
+        Total=("Pedido","nunique")
+    )
+    atraso_uf["% Atraso"] = 100 * atraso_uf["Atrasados"] / atraso_uf["Total"]
+
+    fig_uf = px.bar(
+        atraso_uf.sort_values("% Atraso", ascending=False),
+        x="UF", y="% Atraso",
+        title="Percentual de Atrasos por UF",
+        text_auto=".1f"
+    )
+    st.plotly_chart(fig_uf, use_container_width=True)
+
+    st.markdown("---")
+
+    # ============================================================
+    # 5. ATRASO POR REPRESENTANTE
+    # ============================================================
+    st.subheader("🧑‍💼 Atraso por Representante")
+
+    atraso_rep = df_f.groupby("Representante", as_index=False).agg(
+        Atrasados=("AtrasadoFlag", lambda x: (x=="Atrasado").sum()),
+        Total=("Pedido","nunique")
+    )
+    atraso_rep["% Atraso"] = 100 * atraso_rep["Atrasados"] / atraso_rep["Total"]
+
+    fig_rep = px.bar(
+        atraso_rep.sort_values("% Atraso", ascending=False),
+        x="Representante", y="% Atraso",
+        title="Percentual de Atrasos por Representante",
+        text_auto=".1f"
+    )
+    st.plotly_chart(fig_rep, use_container_width=True)
+
+    st.markdown("---")
+
+    # ============================================================
+    # 6. DISTRIBUIÇÃO DE LEAD TIME
+    # ============================================================
+    st.subheader("⏱️ Distribuição do Lead Time (dias)")
+
+    fig_lead = px.histogram(
+        df_f,
+        x="LeadTimeDias",
+        nbins=30,
+        title="Distribuição de Lead Time"
+    )
+    st.plotly_chart(fig_lead, use_container_width=True)
+
+    st.markdown("---")
+
+    # ============================================================
+    # 7. IDENTIFICAR PEDIDOS FORA DA CURVA
+    # ============================================================
+    st.subheader("🚨 Pedidos com Atraso Acima da Curva")
+
+    limite_outlier = df_f["LeadTimeDias"].mean() + 2 * df_f["LeadTimeDias"].std()
+
+    df_out = df_f[df_f["LeadTimeDias"] > limite_outlier]
+
+    st.write(f"Pedidos acima de **{limite_outlier:.0f} dias** de lead time:")
+
+    df_out_fmt = apply_global_formatting(
+        df_out[["Pedido", "Nome Cliente", "ITEM", "LeadTimeDias", "Data Pedido", "Data Entrega"]]
+    )
+
+    st.dataframe(df_out_fmt, use_container_width=True)
+
+    st.markdown("---")
+
+    # ============================================================
+    # 8. DETALHAMENTO COMPLETO DOS PEDIDOS
+    # ============================================================
+    st.subheader("📋 Detalhamento Completo dos Pedidos")
+
+    detalhamento_cols = [
+        "Pedido","Nome Cliente","Representante","UF",
+        "Data Pedido","Data Entrega","LeadTimeDias",
+        "AtrasadoFlag","Faturamento Líquido"
+    ]
+
+    df_det_fmt = apply_global_formatting(df_f[detalhamento_cols])
+
+    st.dataframe(df_det_fmt, use_container_width=True)
 
 
 # ============================================================
