@@ -1094,19 +1094,250 @@ with aba3:
 # PRODUTOS / RENTABILIDADE
 # ============================================================
 with aba4:
-    st.subheader("Rentabilidade por ITEM")
+
+    st.subheader("💼 Inteligência de Produtos – Mix, Margem, Impostos e Performance")
+
+    # ============================================================
+    # 1) KPIs ESTRATÉGICOS
+    # ============================================================
+    total_prod = df_f["ITEM"].nunique()
+    total_fat = df_f["Faturamento Líquido"].sum()
+    total_lucro = df_f["Lucro Bruto"].sum()
+    total_imp = df_f["Imposto Total"].sum()
+
+    margem_media = np.where(
+        df_f["Valor Pedido R$"].sum() > 0,
+        100 * df_f["Lucro Bruto"].sum() / df_f["Valor Pedido R$"].sum(),
+        0
+    )
+
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("SKUs Ativos", fmt_int(total_prod))
+    col2.metric("Faturamento Líquido", fmt_money(total_fat))
+    col3.metric("Lucro Bruto", fmt_money(total_lucro))
+    col4.metric("Margem Média (%)", fmt_pct(margem_media))
+
+    st.markdown("---")
+
+    # ============================================================
+    # 2) RANKING PREMIUM DE PRODUTOS
+    # ============================================================
+    st.subheader("📊 Ranking Premium de Rentabilidade por SKU")
 
     sku = df_f.groupby("ITEM", as_index=False).agg(
         FatLiq=("Faturamento Líquido","sum"),
+        FatBruto=("Valor Pedido R$","sum"),
         Custo=("Custo Total","sum"),
         Lucro=("Lucro Bruto","sum"),
-        Qtd=("Quant. Pedidos","sum"),
+        Impostos=("Imposto Total","sum"),
+        Pedidos=("Pedido","nunique"),
+        Unidades=("Quant. Pedidos","sum")
     )
 
-    sku_fmt = apply_global_formatting(sku.sort_values("FatLiq", ascending=False))
+    sku["Margem (%)"] = np.where(
+        sku["FatBruto"] > 0,
+        100 * sku["Lucro"] / sku["FatBruto"],
+        np.nan
+    )
+
+    sku["Margem Líquida (%)"] = np.where(
+        sku["FatLiq"] > 0,
+        100 * (sku["Lucro"] - sku["Impostos"]) / sku["FatLiq"],
+        np.nan
+    )
+
+    sku["Ticket Médio"] = np.where(
+        sku["Pedidos"] > 0,
+        sku["FatLiq"] / sku["Pedidos"],
+        0
+    )
+
+    sku["% Part"] = sku["FatLiq"] / sku["FatLiq"].sum() * 100
+
+    sku_fmt = format_dataframe(
+        sku.sort_values("FatLiq", ascending=False),
+        money_cols=["FatLiq","FatBruto","Custo","Lucro","Impostos","Ticket Médio"],
+        pct_cols=["Margem (%)","Margem Líquida (%)","% Part"],
+        int_cols=["Pedidos","Unidades"]
+    )
 
     st.dataframe(sku_fmt, use_container_width=True)
 
+    st.markdown("---")
+
+    # ============================================================
+    # 3) CURVA ABC DE PRODUTOS
+    # ============================================================
+    st.subheader("📈 Curva ABC – Concentração de Receita por SKU")
+
+    top_n = st.slider(
+        "Exibir Top N SKUs:",
+        min_value=5,
+        max_value=len(sku),
+        value=20,
+        step=5
+    )
+
+    abc = sku.sort_values("FatLiq", ascending=False).copy()
+    abc["% Total"] = abc["FatLiq"] / abc["FatLiq"].sum() * 100
+    abc["% Acum"] = abc["% Total"].cumsum()
+
+    fig_abc = px.line(
+        abc.head(top_n),
+        x="ITEM",
+        y="% Acum",
+        markers=True,
+        title=f"Curva ABC – Top {top_n} SKUs"
+    )
+    fig_abc.update_layout(xaxis_title=None)
+
+    st.plotly_chart(fig_abc, use_container_width=True)
+
+    st.markdown("---")
+
+    # ============================================================
+    # 4) CLASSIFICAÇÃO AUTOMÁTICA DOS PRODUTOS (IA LEVE)
+    # ============================================================
+    st.subheader("🤖 Classificação Automática dos SKUs – IA Comercial")
+
+    # Regras simplificadas executivas
+    def class_sku(row):
+        fat = row["FatLiq"]
+        mg = row["Margem (%)"]
+        ped = row["Pedidos"]
+
+        if fat > sku["FatLiq"].quantile(0.85) and mg > 30:
+            return "🔥 Líder Estratégico"
+        if fat > sku["FatLiq"].median() and mg < 15:
+            return "⚠ Volume com Margem Crítica"
+        if ped <= 1 and fat < sku["FatLiq"].median():
+            return "🛑 Baixa Relevância"
+        return "🟡 Sustentação"
+
+    sku["Categoria IA"] = sku.apply(class_sku, axis=1)
+
+    cat_df = sku.groupby("Categoria IA")["ITEM"].count().reset_index()
+    cat_df.columns = ["Categoria", "Qtd SKUs"]
+
+    fig_cat = px.bar(
+        cat_df,
+        x="Categoria",
+        y="Qtd SKUs",
+        color="Categoria",
+        title="Classificação Automática de SKUs – IA Comercial"
+    )
+
+    st.plotly_chart(fig_cat, use_container_width=True)
+
+    st.markdown("---")
+
+    # ============================================================
+    # 5) ANÁLISE INDIVIDUAL DO PRODUTO
+    # ============================================================
+    st.subheader("🔍 Análise Individual do SKU")
+
+    sku_sel = st.selectbox("Selecione o SKU:", sorted(sku["ITEM"].unique()))
+    df_sku = df_f[df_f["ITEM"] == sku_sel]
+
+    colP1, colP2, colP3, colP4 = st.columns(4)
+    colP1.metric("Faturamento Líquido", fmt_money(df_sku["Faturamento Líquido"].sum()))
+    colP2.metric("Margem (%)", fmt_pct(
+        100 * df_sku["Lucro Bruto"].sum() / df_sku["Valor Pedido R$"].sum()
+        if df_sku["Valor Pedido R$"].sum() > 0 else 0
+    ))
+    colP3.metric("Impostos", fmt_money(df_sku["Imposto Total"].sum()))
+    colP4.metric("Clientes Atendidos", fmt_int(df_sku["Nome Cliente"].nunique()))
+
+    # Tendência mensal
+    df_sku_mes = df_sku.groupby("Ano-Mes", as_index=False)["Faturamento Líquido"].sum()
+
+    fig_trend = px.line(
+        df_sku_mes,
+        x="Ano-Mes",
+        y="Faturamento Líquido",
+        markers=True,
+        title=f"Evolução Mensal do SKU – {sku_sel}"
+    )
+    st.plotly_chart(fig_trend, use_container_width=True)
+
+    st.markdown("---")
+
+    # ============================================================
+    # 6) DEPENDÊNCIA TRIBUTÁRIA DO SKU
+    # ============================================================
+    st.subheader("💰 Análise Tributária do SKU")
+
+    df_sku_tax = df_sku[[
+        "cofins","pis","ipi","icms","aproxtribFed","aproxtribState","Imposto Total"
+    ]].sum().reset_index()
+    df_sku_tax.columns = ["Imposto", "Valor"]
+
+    fig_tax = px.bar(
+        df_sku_tax,
+        x="Imposto",
+        y="Valor",
+        title="Composição Tributária do SKU",
+        text_auto=True
+    )
+
+    st.plotly_chart(fig_tax, use_container_width=True)
+
+    st.markdown("---")
+
+    # ============================================================
+    # 7) TOP CLIENTES DO PRODUTO
+    # ============================================================
+    st.subheader("🏅 Top Clientes do Produto")
+
+    top_cli_sku = (
+        df_sku.groupby("Nome Cliente", as_index=False)
+        .agg(FatLiq=("Faturamento Líquido","sum"))
+        .sort_values("FatLiq", ascending=False)
+        .head(20)
+    )
+
+    st.dataframe(apply_global_formatting(top_cli_sku), use_container_width=True)
+
+    st.markdown("---")
+
+    # ============================================================
+    # 8) DISTRIBUIÇÃO GEOGRÁFICA DO SKU
+    # ============================================================
+    st.subheader("🌎 Distribuição Geográfica do SKU")
+
+    geo_sku = (
+        df_sku.groupby("UF", as_index=False)["Faturamento Líquido"]
+        .sum()
+        .sort_values("Faturamento Líquido", ascending=False)
+    )
+
+    fig_geo = px.bar(
+        geo_sku,
+        x="UF",
+        y="Faturamento Líquido",
+        title=f"Vendas por UF do SKU – {sku_sel}",
+        text_auto=True
+    )
+
+    st.plotly_chart(fig_geo, use_container_width=True)
+
+    st.markdown("---")
+
+    # ============================================================
+    # 9) MIX DE PRODUTOS RELACIONADOS (CLIENTES EM COMUM)
+    # ============================================================
+    st.subheader("🧬 Mix de Produtos Relacionados")
+
+    clientes_do_sku = df_sku["Nome Cliente"].unique()
+
+    relacionados = df_f[
+        df_f["Nome Cliente"].isin(clientes_do_sku)
+    ].groupby("ITEM")["Faturamento Líquido"].sum().sort_values(ascending=False).head(20)
+
+    rel_df = relacionados.reset_index()
+    rel_df.columns = ["SKU", "Faturamento Relacionado"]
+
+    st.dataframe(apply_global_formatting(rel_df), use_container_width=True)
 
 # ============================================================
 # ATRASOS / LEAD TIME
