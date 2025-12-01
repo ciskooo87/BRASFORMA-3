@@ -958,45 +958,34 @@ with aba3:
     # ============================================================
     # MAPA CHOROPLETH
     # ============================================================
-    import json
+   import json
 
-    st.subheader("🗺️ Mapa de Faturamento por UF – Choropleth Premium")
+st.subheader("🗺️ Mapa de Faturamento por UF – Choropleth Premium")
 
-    with open("brasil_estados.geojson", "r", encoding="utf-8") as f:
-        geojson = json.load(f)
+# Carrega o arquivo local enviado por você
+with open("br_states.json", "r", encoding="utf-8") as f:
+    geojson = json.load(f)
 
-    uf_to_state = {
-        "AC":"Acre","AL":"Alagoas","AP":"Amapá","AM":"Amazonas",
-        "BA":"Bahia","CE":"Ceará","DF":"Distrito Federal","ES":"Espírito Santo",
-        "GO":"Goiás","MA":"Maranhão","MT":"Mato Grosso","MS":"Mato Grosso do Sul",
-        "MG":"Minas Gerais","PA":"Pará","PB":"Paraíba","PR":"Paraná",
-        "PE":"Pernambuco","PI":"Piauí","RJ":"Rio de Janeiro","RN":"Rio Grande do Norte",
-        "RO":"Rondônia","RS":"Rio Grande do Sul","RR":"Roraima","SC":"Santa Catarina",
-        "SE":"Sergipe","SP":"São Paulo","TO":"Tocantins"
-    }
+# Plotly usa a coluna UF diretamente porque o geojson tem "id": "SP", "RJ", etc.
+fig_map = px.choropleth(
+    geo,
+    geojson=geojson,
+    locations="UF",       # coluna da sua tabela
+    featureidkey="id",    # chave do geojson
+    color="FatLiq",
+    color_continuous_scale="Viridis",
+    hover_name="UF",
+    hover_data={
+        "FatLiq": ":,.2f",
+        "Margem (%)": ":.1f",
+        "Clientes": True,
+        "Pedidos": True
+    },
+    title="Faturamento por UF – Mapa Interativo Premium"
+)
 
-    geo["Estado"] = geo["UF"].map(uf_to_state)
-
-    fig_map = px.choropleth(
-        geo,
-        geojson=geojson,
-        locations="Estado",
-        featureidkey="properties.name",
-        color="FatLiq",
-        hover_name="Estado",
-        hover_data={
-            "FatLiq": ":,.2f",
-            "Margem (%)": ":.1f",
-            "Clientes": True,
-            "Pedidos": True
-        },
-        color_continuous_scale="Viridis",
-        title="Faturamento por UF – Mapa Interativo Premium"
-    )
-    fig_map.update_geos(fitbounds="locations", visible=False)
-    st.plotly_chart(fig_map, use_container_width=True)
-
-    st.markdown("---")
+fig_map.update_geos(fitbounds="locations", visible=False)
+st.plotly_chart(fig_map, use_container_width=True)
 
     # ============================================================
     # CURVA ABC
