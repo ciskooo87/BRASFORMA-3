@@ -244,10 +244,37 @@ def load_brasforma(path: str, sheet="BD DASH"):
 
 
 # ============================================================
-# CARREGAR BASE
+# CARREGAR BASE (NOVO – via uploader ou arquivos internos)
 # ============================================================
 
-df = load_brasforma("Dashboard - Comite Semanal - Brasforma IA (1).xlsx")
+st.sidebar.title("Carregamento da Base")
+
+modo_base = st.sidebar.radio(
+    "Como deseja carregar a base?",
+    ["Arquivo padrão", "Upload manual (.xlsx)"],
+    index=0
+)
+
+# Caminho padrão na estrutura atual do projeto:
+arquivo_padrao = "Dashboard - Comite Semanal - Brasforma IA (1).xlsx"
+
+data_path = None
+
+if modo_base == "Arquivo padrão":
+    data_path = arquivo_padrao
+
+elif modo_base == "Upload manual (.xlsx)":
+    uploaded = st.sidebar.file_uploader("Envie sua base (.xlsx)", type=["xlsx"])
+    if uploaded is not None:
+        data_path = uploaded
+    else:
+        st.warning("Envie um arquivo para continuar.")
+        st.stop()
+
+st.sidebar.caption(f"📄 Arquivo selecionado: **{data_path}**")
+
+# Carregar base usando sua função atual
+df = load_brasforma(data_path)
 
 # ============================================================
 # SIDEBAR – FILTROS (VERSÃO CORRIGIDA E 100% VÁLIDA)
