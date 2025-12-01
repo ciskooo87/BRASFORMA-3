@@ -590,6 +590,51 @@ with aba1:
     colC.metric("Clientes Perdidos", fmt_int(len(clientes_perdidos)))
     colD.metric("Ticket Médio por Cliente", fmt_money(ticket_medio_cliente))
 
+
+
+    # ============================================================
+# ALERTAS AUTOMÁTICOS DO CLIENTE
+# ============================================================
+st.markdown("### 🚨 Alertas Automáticos do Cliente")
+
+alertas = []
+
+# 1. Cliente com queda forte de compras vs período anterior
+fat_atual = df_c["Faturamento Líquido"].sum()
+fat_prev = df[
+    (df["Nome Cliente"] == cliente_sel) &
+    (df["Data / Mês"] < data_ini)
+]["Faturamento Líquido"].sum()
+
+if fat_prev > 0:
+    var_cli = (fat_atual - fat_prev) / fat_prev * 100
+    if var_cli < -30:
+        alertas.append(f"📉 Queda acentuada de faturamento (**{fmt_pct(var_cli)}**) frente ao período anterior.")
+    elif var_cli > 40:
+        alertas.append(f"📈 Crescimento expressivo de faturamento (**{fmt_pct(var_cli)}**). Cliente em expansão.")
+
+# 2. Margem crítica
+margem_cli = df_c["Lucro Bruto"].sum() / df_c["Valor Pedido R$"].sum() * 100 if df_c["Valor Pedido R$"].sum() > 0 else 0
+if margem_cli < 10:
+    alertas.append("🔥 Margem muito baixa. Avaliar desconto, mix e carga tributária.")
+
+# 3. Cliente com poucas compras (risco de churn)
+freq = df_c["Pedido"].nunique()
+if freq == 1 and fat_atual < ticket_medio_cliente * 0.5:
+    alertas.append("⚠ Cliente com baixa frequência. Risco de churn elevado.")
+
+# 4. Concentração excessiva (dependência do cliente)
+perc_cli = fat_atual / fat_liq * 100 if fat_liq > 0 else 0
+if perc_cli > 15:
+    alertas.append(f"🔴 Cliente responde por **{fmt_pct(perc_cli)}** do faturamento do período. Atenção à dependência.")
+
+if len(alertas) == 0:
+    st.success("Nenhum alerta identificado para este cliente.")
+else:
+    for a in alertas:
+        st.warning(a)
+
+
     # ============================================================
     # RANKING COMPLETO DE CLIENTES
     # ============================================================
@@ -618,25 +663,36 @@ with aba1:
 
     st.markdown("---")
 
-    # ============================================================
-    # CURVA ABC DOS CLIENTES
-    # ============================================================
-    st.subheader("📈 Curva ABC de Clientes – Concentração de Receita")
+   # ============================================================
+# CURVA ABC DOS CLIENTES – agora com seletor de quantidade
+# ============================================================
+st.subheader("📈 Curva ABC de Clientes – Concentração de Receita")
 
-    abc = cli.sort_values("FatLiq", ascending=False).copy()
-    abc["% do Total"] = abc["FatLiq"] / abc["FatLiq"].sum() * 100
-    abc["% Acum"] = abc["% do Total"].cumsum()
+top_n = st.slider(
+    "Quantidade de clientes no gráfico (Top N):",
+    min_value=5,
+    max_value=len(cli),
+    value=30,
+    step=5
+)
 
-    fig_abc = px.line(
-        abc,
-        x="Nome Cliente",
-        y="% Acum",
-        title="Curva ABC – % Acumulado por Cliente",
-        markers=True
-    )
-    st.plotly_chart(fig_abc, use_container_width=True)
+abc = cli.sort_values("FatLiq", ascending=False).copy()
+abc["% do Total"] = abc["FatLiq"] / abc["FatLiq"].sum() * 100
+abc["% Acum"] = abc["% do Total"].cumsum()
 
-    st.markdown("---")
+abc_plot = abc.head(top_n)
+
+fig_abc = px.line(
+    abc_plot,
+    x="Nome Cliente",
+    y="% Acum",
+    title=f"Curva ABC – % Acumulado (Top {top_n} Clientes)",
+    markers=True
+)
+fig_abc.update_layout(xaxis_title=None, yaxis_title="% Acumulado")
+
+st.plotly_chart(fig_abc, use_container_width=True)
+
 
     # ============================================================
     # SELECIONAR CLIENTE PARA DETALHAMENTO
