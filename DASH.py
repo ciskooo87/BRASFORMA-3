@@ -959,36 +959,40 @@ with aba3:
     st.markdown("---")
 
     # ============================================================
-    # MAPA INTERATIVO DO BRASIL – PREMIUM (Plotly Choropleth)
-    # ============================================================
+# MAPA INTERATIVO DO BRASIL – sem geojson externo (versão estável)
+# ============================================================
 
-    st.subheader("🗺️ Mapa de Faturamento por UF")
+st.subheader("🗺️ Mapa de Faturamento por UF")
 
-    # Dicionário ISO para o plotly
-    uf_map = {
-        "AC":"BR-AC","AL":"BR-AL","AP":"BR-AP","AM":"BR-AM","BA":"BR-BA","CE":"BR-CE",
-        "DF":"BR-DF","ES":"BR-ES","GO":"BR-GO","MA":"BR-MA","MT":"BR-MT","MS":"BR-MS",
-        "MG":"BR-MG","PA":"BR-PA","PB":"BR-PB","PR":"BR-PR","PE":"BR-PE","PI":"BR-PI",
-        "RJ":"BR-RJ","RN":"BR-RN","RO":"BR-RO","RS":"BR-RS","RR":"BR-RR","SC":"BR-SC",
-        "SE":"BR-SE","SP":"BR-SP","TO":"BR-TO"
-    }
+uf_iso = {
+    "AC":"BR-AC","AL":"BR-AL","AP":"BR-AP","AM":"BR-AM","BA":"BR-BA","CE":"BR-CE",
+    "DF":"BR-DF","ES":"BR-ES","GO":"BR-GO","MA":"BR-MA","MT":"BR-MT","MS":"BR-MS",
+    "MG":"BR-MG","PA":"BR-PA","PB":"BR-PB","PR":"BR-PR","PE":"BR-PE","PI":"BR-PI",
+    "RJ":"BR-RJ","RN":"BR-RN","RO":"BR-RO","RR":"BR-RR","RS":"BR-RS","SC":"BR-SC",
+    "SE":"BR-SE","SP":"BR-SP","TO":"BR-TO"
+}
 
-    geo["UF_Code"] = geo["UF"].map(uf_map)
+geo["UF_Code"] = geo["UF"].map(uf_iso)
 
-    fig_map = px.choropleth(
-        geo,
-        geojson="https://raw.githubusercontent.com/codeforamerica/click_that_hood/master/public/data/brazil-states.geojson",
-        locations="UF_Code",
-        color="FatLiq",
-        hover_name="UF",
-        hover_data={"FatLiq":":,.2f","Margem (%)":":.1f","Clientes":True,"Pedidos":True},
-        color_continuous_scale="Viridis",
-        title="Faturamento por UF – Mapa Interativo"
-    )
-    fig_map.update_geos(fitbounds="locations", visible=False)
-    st.plotly_chart(fig_map, use_container_width=True)
+fig_map = px.choropleth(
+    geo,
+    locations="UF_Code",
+    color="FatLiq",
+    color_continuous_scale="Viridis",
+    locationmode="ISO-3166-2",
+    hover_name="UF",
+    hover_data={
+        "FatLiq": ":,.2f",
+        "Margem (%)": ":.1f",
+        "Clientes": True,
+        "Pedidos": True
+    },
+    title="Faturamento por UF – Mapa Interativo"
+)
 
-    st.markdown("---")
+fig_map.update_geos(fitbounds="locations", visible=False)
+st.plotly_chart(fig_map, use_container_width=True)
+
 
     # ============================================================
     # CURVA ABC DE UF – PREMIUM
